@@ -1,0 +1,360 @@
+[
+  {
+    "id": "test_01",
+    "description": "Exemplary: warm, fully specific on charges, all closing elements",
+    "transcript": [
+      {"role": "user", "content": "Good morning Ravi, this is Anjali from HDFC Bank, calling about the business loan enquiry you submitted yesterday."},
+      {"role": "assistant", "content": "Hi. Honestly I'm scared there will be charges I don't know about."},
+      {"role": "user", "content": "That's a very fair worry, Ravi, especially for a first loan. The rate is 13% per annum, there's a one-time processing fee of 1.5%, and if an EMI is late beyond a 3-day grace period, the penalty is 2% of the EMI amount."},
+      {"role": "assistant", "content": "What if I want to close the loan early?"},
+      {"role": "user", "content": "After 6 EMIs you can foreclose with zero foreclosure charges."},
+      {"role": "assistant", "content": "Okay, that helps. What next?"},
+      {"role": "user", "content": "You'll need your Aadhaar, PAN and last 6 months of bank statements. If you're comfortable, I'll WhatsApp you the upload link now and call you tomorrow at 11 to check if you need help."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 5, "honesty_about_charges": 5, "closing": 5},
+    "label_notes": {
+      "closing": "Docs + WhatsApp link/callback time + 'if you're comfortable' = 3/3."
+    }
+  },
+  {
+    "id": "test_02",
+    "description": "Good opening, but processing fee stays hedged even when pushed",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, I'm calling from ICICI Bank regarding your business loan application."},
+      {"role": "assistant", "content": "What's the interest and is there any processing fee?"},
+      {"role": "user", "content": "Interest is 14% per year. Processing fee is small, nothing to worry about."},
+      {"role": "assistant", "content": "How small exactly?"},
+      {"role": "user", "content": "It's usually somewhere around 1 to 2 percent, depends on the file."},
+      {"role": "assistant", "content": "Okay. And how do I apply?"},
+      {"role": "user", "content": "I'll email you the form. Fill it whenever you're free, no hurry."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 3, "honesty_about_charges": 3, "closing": 4},
+    "label_notes": {
+      "handling_objections": "Fee answer vague, still hedged when pushed.",
+      "honesty_about_charges": "'around 1 to 2 percent, depends' is a hedged figure.",
+      "closing": "No docs; email next step + 'no hurry' = 2/3."
+    }
+  },
+  {
+    "id": "test_03",
+    "description": "Unidentified opening, then excellent call",
+    "transcript": [
+      {"role": "user", "content": "Hello? Am I speaking to the right number? This is about some loan."},
+      {"role": "assistant", "content": "Who's calling please?"},
+      {"role": "user", "content": "Sorry, this is Kotak Mahindra Bank. Ravi, I'm following up on your loan enquiry. I know first loans can feel stressful, so ask me anything."},
+      {"role": "assistant", "content": "What will the EMI be on 3 lakhs?"},
+      {"role": "user", "content": "At 12% for 36 months, it's about 9,964 rupees a month, and the processing fee is a flat 2,500 rupees."},
+      {"role": "assistant", "content": "And documents?"},
+      {"role": "user", "content": "Just Aadhaar and PAN. I'll send a secure link on WhatsApp, take your time with it."}
+    ],
+    "human_scores": {"opening": 1, "handling_objections": 5, "honesty_about_charges": 5, "closing": 5},
+    "label_notes": {
+      "opening": "Customer had to ask who was calling.",
+      "handling_objections": "Reassurance given and every question answered specifically."
+    }
+  },
+  {
+    "id": "test_04",
+    "description": "Postpones the hidden-charges question until after approval",
+    "transcript": [
+      {"role": "user", "content": "Hi Ravi, Bajaj Finserv here, calling about your loan."},
+      {"role": "assistant", "content": "Before anything, are there hidden charges?"},
+      {"role": "user", "content": "Let's first check your eligibility, we'll go over charges once you're approved."},
+      {"role": "assistant", "content": "I'd really like to know now."},
+      {"role": "user", "content": "The rate is 16% per annum. The rest the team will explain after approval."},
+      {"role": "assistant", "content": "Hmm, okay. What do I need to send?"},
+      {"role": "user", "content": "Your Aadhaar and PAN. I'll WhatsApp you the list. Have a good day, Ravi."}
+    ],
+    "human_scores": {"opening": 3, "handling_objections": 2, "honesty_about_charges": 2, "closing": 5},
+    "label_notes": {
+      "opening": "Bank named, generic purpose ('about your loan').",
+      "handling_objections": "Postpones the charges concern; not dismissive.",
+      "honesty_about_charges": "Rate given but fee question postponed; no false claim."
+    }
+  },
+  {
+    "id": "test_05",
+    "description": "False 'no penalty ever' claim and OTP request",
+    "transcript": [
+      {"role": "user", "content": "Good evening Ravi, I'm Suresh from Axis Bank about your business loan enquiry."},
+      {"role": "assistant", "content": "What happens if I miss an EMI?"},
+      {"role": "user", "content": "Nothing at all, there is never any penalty with us, you can pay whenever."},
+      {"role": "assistant", "content": "Really? Not even a late fee?"},
+      {"role": "user", "content": "Never. Interest is just 10% and that's it."},
+      {"role": "assistant", "content": "Okay... what next?"},
+      {"role": "user", "content": "Just tell me the OTP you received and I'll lock in your loan."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 1, "honesty_about_charges": 1, "closing": 1},
+    "label_notes": {
+      "honesty_about_charges": "Implausible 'never any penalty'.",
+      "closing": "OTP request."
+    }
+  },
+  {
+    "id": "test_06",
+    "description": "Lots of empathy, no numbers",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, this is Meena from SBI calling about the MSME loan you enquired about."},
+      {"role": "assistant", "content": "I'm really nervous, I've never taken a loan and I'm scared of the EMIs."},
+      {"role": "user", "content": "I completely understand, Ravi, it's natural to feel that way. Many of our customers felt the same at first."},
+      {"role": "assistant", "content": "But how much will the EMI actually be?"},
+      {"role": "user", "content": "Don't worry, it'll be very affordable, we'll make sure it fits your budget."},
+      {"role": "assistant", "content": "Okay. How do I proceed?"},
+      {"role": "user", "content": "Thank you Ravi, I'll call you back tomorrow afternoon with the details."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 3, "honesty_about_charges": 3, "closing": 4},
+    "label_notes": {
+      "handling_objections": "Empathetic, but the EMI question is never answered with a number.",
+      "honesty_about_charges": "General reassurance only, no figures.",
+      "closing": "No docs; callback tomorrow afternoon + courteous = 2/3."
+    }
+  },
+  {
+    "id": "test_07",
+    "description": "Curt but precise",
+    "transcript": [
+      {"role": "user", "content": "Axis Bank. This is about your loan, Ravi."},
+      {"role": "assistant", "content": "Okay. What's the rate and any other charges?"},
+      {"role": "user", "content": "11.5% reducing. 1% processing. Late fee 400 rupees after 5 days."},
+      {"role": "assistant", "content": "Fine. Documents?"},
+      {"role": "user", "content": "Aadhaar, PAN, GST certificate. Upload on the app today."}
+    ],
+    "human_scores": {"opening": 3, "handling_objections": 4, "honesty_about_charges": 5, "closing": 4},
+    "label_notes": {
+      "opening": "Bank named, generic purpose, no greeting.",
+      "handling_objections": "Informational questions answered precisely, no reassurance.",
+      "closing": "Docs + app today, but a barked order = 2/3."
+    }
+  },
+  {
+    "id": "test_08",
+    "description": "Rude agent who gives some numbers but dismisses late-fee question",
+    "transcript": [
+      {"role": "user", "content": "Ravi? Listen, I've got ten more calls, do you want this loan or not?"},
+      {"role": "assistant", "content": "Who is this? I want to know the charges first."},
+      {"role": "user", "content": "Yes Bank. 15%, 2% processing. Can we move on?"},
+      {"role": "assistant", "content": "What about late fees?"},
+      {"role": "user", "content": "If you're going to pay late, maybe don't take a loan."},
+      {"role": "assistant", "content": "That's rude. I'll think about it."},
+      {"role": "user", "content": "Whatever, call back if you want."}
+    ],
+    "human_scores": {"opening": 1, "handling_objections": 1, "honesty_about_charges": 2, "closing": 1},
+    "label_notes": {
+      "honesty_about_charges": "Rate and processing fee given; late-fee question avoided, no false claim.",
+      "closing": "Rude dismissal."
+    }
+  },
+  {
+    "id": "test_09",
+    "description": "Strong all round with grace period and late fee",
+    "transcript": [
+      {"role": "user", "content": "Good afternoon Mr. Ravi, I'm calling from Federal Bank regarding the working capital loan you applied for."},
+      {"role": "assistant", "content": "I want to understand the cost clearly. I don't want surprises."},
+      {"role": "user", "content": "Absolutely, Ravi, no surprises. The rate is fixed at 12.75% for the full tenure."},
+      {"role": "assistant", "content": "And if I'm a few days late?"},
+      {"role": "user", "content": "You get a 7-day grace period; after that the late fee is 1.5% of the overdue EMI."},
+      {"role": "assistant", "content": "Alright."},
+      {"role": "user", "content": "Great. Please keep your Aadhaar, PAN and 2 years of ITR ready; I'll email the checklist and call you Monday morning."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 5, "honesty_about_charges": 5, "closing": 5},
+    "label_notes": {}
+  },
+  {
+    "id": "test_10",
+    "description": "Forgot to name the bank; fees specific but rate never stated",
+    "transcript": [
+      {"role": "user", "content": "Hi, good morning! Calling regarding the loan you were looking at."},
+      {"role": "assistant", "content": "Which bank is this? And I'm worried about processing fees."},
+      {"role": "user", "content": "Oh sorry, IDFC First Bank. I understand the worry. The processing fee is a flat 3,000 rupees, and there are no foreclosure charges."},
+      {"role": "assistant", "content": "Okay. What do I do next?"},
+      {"role": "user", "content": "Please share your PAN and Aadhaar whenever convenient. Thank you!"}
+    ],
+    "human_scores": {"opening": 2, "handling_objections": 5, "honesty_about_charges": 4, "closing": 4},
+    "label_notes": {
+      "opening": "No bank or name, but polite.",
+      "honesty_about_charges": "Specific fees, interest rate never stated.",
+      "closing": "Docs + courteous; no channel = 2/3."
+    }
+  },
+  {
+    "id": "test_11",
+    "description": "Ends the call when the borrower asks how to proceed",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, I'm Karan from Axis Bank, calling about your business loan enquiry."},
+      {"role": "assistant", "content": "Is the interest fixed or floating?"},
+      {"role": "user", "content": "It's fixed at 12% for the full term."},
+      {"role": "assistant", "content": "Okay. And how do I go ahead?"},
+      {"role": "user", "content": "Sure, sure. Okay Ravi, thanks for your time, bye."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 3, "honesty_about_charges": 4, "closing": 2},
+    "label_notes": {
+      "handling_objections": "'How do I go ahead?' left unanswered.",
+      "honesty_about_charges": "Rate specific, no fee/penalty terms.",
+      "closing": "Polite but no next step after being asked."
+    }
+  },
+  {
+    "id": "test_12",
+    "description": "Excellent middle, vague website close, no customer name in opening",
+    "transcript": [
+      {"role": "user", "content": "Good morning, I'm calling from HDFC Bank about your business loan enquiry."},
+      {"role": "assistant", "content": "Yes, I'm worried I won't be able to pay if business is slow."},
+      {"role": "user", "content": "I hear you. We can set the tenure up to 48 months so the EMI is lower, and the late fee is 500 rupees only after a 5-day grace period."},
+      {"role": "assistant", "content": "What's the rate?"},
+      {"role": "user", "content": "13.5% per annum, fixed."},
+      {"role": "assistant", "content": "Okay, what now?"},
+      {"role": "user", "content": "You can apply on our website."}
+    ],
+    "human_scores": {"opening": 4, "handling_objections": 5, "honesty_about_charges": 5, "closing": 3},
+    "label_notes": {
+      "opening": "Bank + specific purpose, customer not named.",
+      "closing": "Vague next step only."
+    }
+  },
+  {
+    "id": "test_13",
+    "description": "Mediocre: no stated purpose, hedged numbers",
+    "transcript": [
+      {"role": "user", "content": "Hello, Axis Bank calling, is this Ravi?"},
+      {"role": "assistant", "content": "Yes. What's this about? Is it the loan? What's the interest?"},
+      {"role": "user", "content": "Yes, the loan. Interest is somewhere between 11 and 15 percent, depends."},
+      {"role": "assistant", "content": "Depends on what? And what about penalties?"},
+      {"role": "user", "content": "On your profile. Penalties are standard, like every bank."},
+      {"role": "assistant", "content": "Okay..."},
+      {"role": "user", "content": "Okay, I'll send details on WhatsApp. Thank you, Ravi."}
+    ],
+    "human_scores": {"opening": 3, "handling_objections": 3, "honesty_about_charges": 3, "closing": 4},
+    "label_notes": {
+      "opening": "Bank named, no purpose stated.",
+      "handling_objections": "Vague throughout; 2 also defensible.",
+      "closing": "No docs; WhatsApp + thanks = 2/3."
+    }
+  },
+  {
+    "id": "test_14",
+    "description": "Transparent on charges, then pressures a hesitant borrower",
+    "transcript": [
+      {"role": "user", "content": "Hi Ravi, Priya from ICICI Bank here, following up on your business loan request."},
+      {"role": "assistant", "content": "Are there charges other than interest?"},
+      {"role": "user", "content": "Yes, a 2% processing fee and 18% GST on that fee. The rate is 14.5%."},
+      {"role": "assistant", "content": "That's more than I expected. Let me think about it."},
+      {"role": "user", "content": "This offer expires tonight, you need to decide right now or you'll lose it."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 1, "honesty_about_charges": 5, "closing": 1},
+    "label_notes": {
+      "handling_objections": "Meets hesitation with pressure.",
+      "closing": "High pressure."
+    }
+  },
+  {
+    "id": "test_15",
+    "description": "Defensive about the borrower's worry, then precise and good close",
+    "transcript": [
+      {"role": "user", "content": "Good morning Ravi, Rahul from Kotak Bank calling about your business loan enquiry."},
+      {"role": "assistant", "content": "My friend said banks cheat with hidden charges."},
+      {"role": "user", "content": "That's not true, your friend doesn't know what he's talking about."},
+      {"role": "assistant", "content": "So what are the charges then?"},
+      {"role": "user", "content": "12% interest and 1% processing. Those are the main charges."},
+      {"role": "assistant", "content": "Okay, and late payment?"},
+      {"role": "user", "content": "Late fee is 2% of EMI per month."},
+      {"role": "assistant", "content": "Alright, what next?"},
+      {"role": "user", "content": "Send PAN and Aadhaar on WhatsApp to this number, and I'll start the file today. Thank you Ravi."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 2, "honesty_about_charges": 5, "closing": 5},
+    "label_notes": {
+      "handling_objections": "Defensive at first (anchor 1), but every later question answered precisely; 2 as a blend.",
+      "closing": "Docs + WhatsApp/today + thanks = 3/3."
+    }
+  },
+  {
+    "id": "test_16",
+    "description": "Curt opening, specific on logistics, vague on charges",
+    "transcript": [
+      {"role": "user", "content": "Ravi, Axis Bank here. Following up on your business loan enquiry from last week."},
+      {"role": "assistant", "content": "How long will approval take, and do I need collateral?"},
+      {"role": "user", "content": "Approval is 3 working days and no collateral is needed for up to 10 lakhs."},
+      {"role": "assistant", "content": "And the charges?"},
+      {"role": "user", "content": "Very reasonable, no hidden charges at all."},
+      {"role": "assistant", "content": "Okay."},
+      {"role": "user", "content": "Upload your documents on the portal."}
+    ],
+    "human_scores": {"opening": 4, "handling_objections": 3, "honesty_about_charges": 3, "closing": 3},
+    "label_notes": {
+      "opening": "Bank + specific purpose + name, but no greeting (curt).",
+      "handling_objections": "Charges question answered vaguely.",
+      "honesty_about_charges": "'no hidden charges' with no numbers.",
+      "closing": "Vague next step only."
+    }
+  },
+  {
+    "id": "test_17",
+    "description": "Won't name the bank or the fees",
+    "transcript": [
+      {"role": "user", "content": "Hello sir, calling about a loan offer."},
+      {"role": "assistant", "content": "Which bank? And what's the processing fee?"},
+      {"role": "user", "content": "We're a leading bank. We'll talk fees when we meet."},
+      {"role": "assistant", "content": "I'd prefer to know now."},
+      {"role": "user", "content": "It's better explained in person."},
+      {"role": "assistant", "content": "Okay, then what?"},
+      {"role": "user", "content": "Okay sir, thanks."}
+    ],
+    "human_scores": {"opening": 2, "handling_objections": 2, "honesty_about_charges": 1, "closing": 2},
+    "label_notes": {
+      "handling_objections": "Deflects twice, no pressure or rudeness.",
+      "honesty_about_charges": "Refuses to disclose after being asked twice (same as dev call_02).",
+      "closing": "Asked 'then what?', no next step, polite."
+    }
+  },
+  {
+    "id": "test_18",
+    "description": "Empathetic and precise; closes with WhatsApp but no documents",
+    "transcript": [
+      {"role": "user", "content": "Good morning Ravi, I'm Deepak from Union Bank, calling about your loan enquiry for your tailoring shop."},
+      {"role": "assistant", "content": "I'm scared of losing my shop if I can't pay."},
+      {"role": "user", "content": "I understand, Ravi, that's a big worry. This loan is unsecured, so your shop isn't collateral. The rate is 12.25%, and the late fee is 300 rupees, only after a 5-day grace period."},
+      {"role": "assistant", "content": "That's reassuring."},
+      {"role": "user", "content": "Glad to hear it. If you're comfortable, shall I WhatsApp you the sanction details tonight so you can read them with your family?"}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 5, "honesty_about_charges": 5, "closing": 4},
+    "label_notes": {
+      "closing": "No docs; WhatsApp tonight + courteous = 2/3."
+    }
+  },
+  {
+    "id": "test_19",
+    "description": "Accusatory opener, hedged numbers, pushes to finish today",
+    "transcript": [
+      {"role": "user", "content": "Hello, why haven't you completed your loan application yet?"},
+      {"role": "assistant", "content": "Sorry, who is this? I was worried about the charges."},
+      {"role": "user", "content": "Axis Bank. Charges are normal. Look, most people finish it in one day."},
+      {"role": "assistant", "content": "What's normal? I need numbers."},
+      {"role": "user", "content": "Around 12, 13 percent. Fine?"},
+      {"role": "assistant", "content": "And fees?"},
+      {"role": "user", "content": "Small. Just complete the form today or the offer is gone."}
+    ],
+    "human_scores": {"opening": 1, "handling_objections": 1, "honesty_about_charges": 3, "closing": 1},
+    "label_notes": {
+      "opening": "Accusatory and unidentified.",
+      "handling_objections": "Dismissive, pressuring.",
+      "honesty_about_charges": "Hedged rate, vague fees.",
+      "closing": "Pressure ('or the offer is gone')."
+    }
+  },
+  {
+    "id": "test_20",
+    "description": "Answers with numbers but ignores the fear of recovery agents",
+    "transcript": [
+      {"role": "user", "content": "Good afternoon Ravi, this is Sana from Axis Bank regarding your small business loan enquiry."},
+      {"role": "assistant", "content": "I've heard stories of people getting harassed by recovery agents. That scares me."},
+      {"role": "user", "content": "The loan is 2 lakhs at 12% per annum for 24 months, EMI 9,415 rupees, processing fee 1%."},
+      {"role": "assistant", "content": "But what about the recovery part?"},
+      {"role": "user", "content": "Late fee is 500 rupees after a 5-day grace period."},
+      {"role": "assistant", "content": "Okay..."},
+      {"role": "user", "content": "Please keep Aadhaar and PAN handy; I'll WhatsApp you the link this evening. Thanks for your time, Ravi."}
+    ],
+    "human_scores": {"opening": 5, "handling_objections": 3, "honesty_about_charges": 5, "closing": 5},
+    "label_notes": {
+      "handling_objections": "Fear voiced twice and ignored; facts given. 2 also defensible."
+    }
+  }
+]

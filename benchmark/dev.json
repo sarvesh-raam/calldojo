@@ -1,0 +1,329 @@
+[
+  {
+    "id": "call_01",
+    "description": "Exemplary call with complete transparency and documentation closing",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Hello Ravi, I am calling from Axis Bank regarding your loan inquiry."
+      },
+      {
+        "role": "assistant",
+        "content": "Hi, I am worried about hidden charges."
+      },
+      {
+        "role": "user",
+        "content": "Don't worry Ravi, interest is flat 12% per year with zero hidden charges and a 5-day grace period."
+      },
+      {
+        "role": "assistant",
+        "content": "That sounds fair. What documents do I need?"
+      },
+      {
+        "role": "user",
+        "content": "Only your Aadhaar and PAN card. I will send you the upload link on WhatsApp."
+      }
+    ],
+    "human_scores": {
+      "opening": 5,
+      "handling_objections": 5,
+      "honesty_about_charges": 5,
+      "closing": 5
+    }
+  },
+  {
+    "id": "call_02",
+    "description": "Agent dodged hidden charges and gave vague interest rate",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Hey, calling about your loan."
+      },
+      {
+        "role": "assistant",
+        "content": "Are there extra processing fees?"
+      },
+      {
+        "role": "user",
+        "content": "Fees are standard market rate, let's just complete the form first."
+      },
+      {
+        "role": "assistant",
+        "content": "Wait, I need to know the fees first."
+      },
+      {
+        "role": "user",
+        "content": "Trust me, we will discuss fees after approval."
+      }
+    ],
+    "human_scores": {
+      "opening": 2,
+      "handling_objections": 1,
+      "honesty_about_charges": 1,
+      "closing": 1
+    }
+  },
+  {
+    "id": "call_03",
+    "description": "Good opening and objection handling, but weak closing",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Good morning Ravi, this is Priya calling from Axis Bank about your loan application."
+      },
+      {
+        "role": "assistant",
+        "content": "I'm nervous I might miss an EMI payment."
+      },
+      {
+        "role": "user",
+        "content": "I understand your fear. We offer a 5-day grace period with zero penalty."
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, that's great. How do I proceed?"
+      },
+      {
+        "role": "user",
+        "content": "Okay bye, talk to you later."
+      }
+    ],
+    "human_scores": {
+      "opening": 5,
+      "handling_objections": 5,
+      "honesty_about_charges": 4,
+      "closing": 2
+    }
+  },
+  {
+    "id": "call_04",
+    "description": "No greeting or identification, but transparent about charges",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Do you still want the loan?"
+      },
+      {
+        "role": "assistant",
+        "content": "Who is this? Are there hidden charges?"
+      },
+      {
+        "role": "user",
+        "content": "Interest is 12% with zero hidden fees and 1% processing charge."
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, how do I apply?"
+      },
+      {
+        "role": "user",
+        "content": "Send your PAN and Aadhaar on WhatsApp and we will disburse in 24 hours."
+      }
+    ],
+    "human_scores": {
+      "opening": 1,
+      "handling_objections": 3,
+      "honesty_about_charges": 5,
+      "closing": 4
+    }
+  },
+  {
+    "id": "call_05",
+    "description": "Average across all dimensions",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Hello Ravi, Axis Bank loan team calling."
+      },
+      {
+        "role": "assistant",
+        "content": "What is the interest rate and late fee?"
+      },
+      {
+        "role": "user",
+        "content": "Interest is around 12-14% and late fee is minimal."
+      },
+      {
+        "role": "assistant",
+        "content": "Can you be more specific on the late fee?"
+      },
+      {
+        "role": "user",
+        "content": "It is 200 rupees after the grace period. Upload your docs on our site."
+      }
+    ],
+    "human_scores": {
+      "opening": 3,
+      "handling_objections": 3,
+      "honesty_about_charges": 3,
+      "closing": 3
+    }
+  },
+  {
+    "id": "call_06",
+    "description": "Strong opening, honest on fees, excellent objection handling, solid close",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Hello Ravi ji, I am Vikram from Axis Bank SME lending team following up on your business loan inquiry."
+      },
+      {
+        "role": "assistant",
+        "content": "I have never taken a loan, I am scared of hidden clauses."
+      },
+      {
+        "role": "user",
+        "content": "I completely understand Ravi ji. We give you a 100% written agreement with 12.5% fixed interest, zero foreclosure charges, and no hidden costs."
+      },
+      {
+        "role": "assistant",
+        "content": "What happens if sales drop and I pay 2 days late?"
+      },
+      {
+        "role": "user",
+        "content": "We have an automatic 5-day grace period where no fee is charged and your CIBIL score is unaffected. If you want, I can send the sanction letter on WhatsApp right now for your review."
+      }
+    ],
+    "human_scores": {
+      "opening": 5,
+      "handling_objections": 5,
+      "honesty_about_charges": 5,
+      "closing": 4
+    },
+    "label_notes": {
+      "closing": "No documents named; WhatsApp next step + courteous = 2 of 3 elements. Was 5, inconsistent with call_08 (same pattern, labelled 4)."
+    }
+  },
+  {
+    "id": "call_07",
+    "description": "Agent lied about zero late fees when asked",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Hello Ravi, calling from Axis Bank for your loan."
+      },
+      {
+        "role": "assistant",
+        "content": "Is there really no late fee at all?"
+      },
+      {
+        "role": "user",
+        "content": "Yes, absolutely zero fees ever, pay whenever you want."
+      },
+      {
+        "role": "assistant",
+        "content": "Are you sure? Banks usually have late fees."
+      },
+      {
+        "role": "user",
+        "content": "No late fees at all for you, just give me your OTP."
+      }
+    ],
+    "human_scores": {
+      "opening": 3,
+      "handling_objections": 1,
+      "honesty_about_charges": 1,
+      "closing": 1
+    }
+  },
+  {
+    "id": "call_08",
+    "description": "Good professional call with clear documentation",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Good afternoon Mr. Ravi, I am calling from Axis Bank customer support regarding your business loan inquiry."
+      },
+      {
+        "role": "assistant",
+        "content": "Can you tell me the EMI for 2 lakhs?"
+      },
+      {
+        "role": "user",
+        "content": "At 12% for 24 months, your monthly EMI is 9,415 rupees. Total interest is roughly 25,960 rupees over 2 years."
+      },
+      {
+        "role": "assistant",
+        "content": "And processing fees?"
+      },
+      {
+        "role": "user",
+        "content": "There is a 1% one-time processing fee of 2,000 rupees deducted upfront. If you are comfortable, I can email you the application link."
+      }
+    ],
+    "human_scores": {
+      "opening": 5,
+      "handling_objections": 4,
+      "honesty_about_charges": 5,
+      "closing": 4
+    }
+  },
+  {
+    "id": "call_09",
+    "description": "Rude agent who rushed the borrower",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Yeah Ravi, do you need the money or not?"
+      },
+      {
+        "role": "assistant",
+        "content": "Who is this? What are the charges?"
+      },
+      {
+        "role": "user",
+        "content": "Axis Bank. Look, I don't have all day to explain every tiny charge."
+      },
+      {
+        "role": "assistant",
+        "content": "Then I don't want the loan."
+      },
+      {
+        "role": "user",
+        "content": "Fine, whatever."
+      }
+    ],
+    "human_scores": {
+      "opening": 1,
+      "handling_objections": 1,
+      "honesty_about_charges": 1,
+      "closing": 1
+    }
+  },
+  {
+    "id": "call_10",
+    "description": "Good on charges, but weak on objection empathy",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Hello Ravi, calling from the Axis Bank loan desk."
+      },
+      {
+        "role": "assistant",
+        "content": "I am worried about losing my shop if I miss an EMI."
+      },
+      {
+        "role": "user",
+        "content": "Interest is 12% and late fee is 500. This is an unsecured loan so no shop collateral is involved."
+      },
+      {
+        "role": "assistant",
+        "content": "Are you sure no collateral?"
+      },
+      {
+        "role": "user",
+        "content": "Yes, zero collateral. Send your Aadhaar card and PAN card to proceed."
+      }
+    ],
+    "human_scores": {
+      "opening": 3,
+      "handling_objections": 3,
+      "honesty_about_charges": 5,
+      "closing": 3
+    },
+    "label_notes": {
+      "opening": "Generic purpose ('loan desk'); same pattern as call_05/call_07 which are labelled 3. Was 4.",
+      "closing": "Docs named, but no channel and a curt order = 1 of 3 elements. Was 4."
+    }
+  }
+]

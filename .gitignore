@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+transcripts/
+# Benchmark run logs: regenerated each run, and rate-limit errors in them include the Groq org ID
+benchmark/*_results*.txt

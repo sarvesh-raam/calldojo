@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CallSim: Phone Roleplay with Ravi (Stage 4 VAD & Barge-In)</title>
+  <!-- ONNX Runtime & Silero VAD Web for Browser Voice Activity Detection -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #ef4444;
+      --accent: #10b981;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+    .container {
+      width: 100%;
+      max-width: 740px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    header {
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .badge-stage4 {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 0.4rem;
+    }
+    .ws-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      margin-top: 0.3rem;
+      color: var(--text-muted);
+    }
+    .ws-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+    .ws-dot.connected {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .controls-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      box-shadow: 0 10px 30px -5px rgba(0,0,0,0.4);
+    }
+    .mode-selector {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      gap: 2px;
+    }
+    .mode-btn {
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+    }
+    .action-btn {
+      width: 100%;
+      max-width: 380px;
+      padding: 1.15rem 2rem;
+      font-size: 1.15rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 9999px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 18px rgba(37, 99, 235, 0.45);
+    }
+    .action-btn:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+    }
+    .action-btn.vad-active {
+      background: #0f766e;
+      box-shadow: 0 0 20px rgba(15, 118, 110, 0.5);
+    }
+    .action-btn.recording {
+      background: var(--danger);
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.7);
+      animation: pulse 1.2s infinite;
+    }
+    .action-btn.processing {
+      background: #d97706;
+      box-shadow: 0 0 20px rgba(217, 119, 6, 0.4);
+      cursor: wait;
+    }
+    .action-btn.speaking {
+      background: #059669;
+      box-shadow: 0 0 24px rgba(5, 150, 105, 0.6);
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.025); }
+    }
+    .aux-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      width: 100%;
+      justify-content: space-between;
+    }
+    .secondary-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .secondary-btn:hover {
+      color: var(--text);
+      border-color: #64748b;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    #langSelect option {
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .status-text {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .chat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.25rem;
+      min-height: 280px;
+      max-height: 520px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .msg {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-width: 85%;
+    }
+    .msg.user {
+      align-self: flex-end;
+    }
+    .msg.user .bubble {
+      background: #2563eb;
+      color: white;
+      border-radius: 14px 14px 2px 14px;
+    }
+    .msg.assistant {
+      align-self: flex-start;
+    }
+    .msg.assistant .bubble {
+      background: #334155;
+      color: #f1f5f9;
+      border-radius: 14px 14px 14px 2px;
+    }
+    .bubble {
+      padding: 0.85rem 1.15rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .msg-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0 0.3rem;
+    }
+    .msg.user .msg-meta {
+      justify-content: flex-end;
+    }
+    .timings-bar {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin-top: 0.2rem;
+    }
+    .timing-pill {
+      background: rgba(0,0,0,0.35);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-family: monospace;
+      color: #93c5fd;
+    }
+    .timing-pill.ttfa {
+      background: rgba(16, 185, 129, 0.25);
+      color: #34d399;
+      font-weight: 700;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .interrupted-tag {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+    .error-banner {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger);
+      color: #fca5a5;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>CallSim <span>📞</span> <span class="badge-stage4" style="background: rgba(168, 85, 247, 0.2); border-color: rgba(168, 85, 247, 0.4); color: #c084fc;">Stage 5: VAD, Barge-in & QA Scorer</span></h1>
+      <p class="subtitle">Hands-free Conversational VAD + Instant Barge-in + Automated 4-Criteria QA Evaluator</p>
+      <div class="ws-indicator">
+        <span id="wsDot" class="ws-dot"></span>
+        <span id="wsText">Connecting WebSocket...</span>
+      </div>
+    </header>
+
+    <div id="errorBanner" class="error-banner"></div>
+
+    <div class="controls-card">
+      <div class="mode-selector">
+        <button id="modeVAD" class="mode-btn active">🎙️ Hands-Free Call (VAD)</button>
+        <button id="modeClick" class="mode-btn">🖱️ Click to Talk</button>
+        <button id="modeHold" class="mode-btn">🖐️ Hold to Talk</button>
+      </div>
+
+      <button id="talk" class="action-btn vad-active">
+        <span id="btnIcon">📞</span>
+        <span id="btnLabel">Live Call (Listening...)</span>
+      </button>
+
+      <div class="aux-controls">
+        <span id="status" class="status-text">Hands-free active. Speak into mic anytime; interrupt Ravi to barge in.</span>
+        <div style="display:flex;gap:0.5rem;">
+          <select id="langSelect" class="secondary-btn" title="Ravi's language (switching starts a new call)"></select>
+          <button id="scoreBtn" class="secondary-btn" style="border-color:#38bdf8;color:#38bdf8;font-weight:600;">📊 End & Score Call</button>
+          <button id="reset" class="secondary-btn">New call (Reset)</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat" class="chat-card">
+      <div class="msg assistant">
+        <div class="bubble"><em>Stage 5 live call ready. Speak into your mic to roleplay as the loan officer. Click "End & Score Call" to see your QA evaluation!</em></div>
+        <div class="msg-meta">CallSim System</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QA Scorecard Modal -->
+  <div id="scorecardModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);z-index:999;align-items:center;justify-content:center;padding:1rem;">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:20px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;padding:2rem;display:flex;flex-direction:column;gap:1.25rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <h2 style="font-size:1.5rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:0.5rem;">📊 Call QA Scorecard</h2>
+          <p id="modalCallId" style="color:#94a3b8;font-size:0.8rem;margin-top:0.2rem;"></p>
+        </div>
+        <div id="modalOverallScore" style="background:#2563eb;color:white;font-size:1.4rem;font-weight:700;padding:0.4rem 1rem;border-radius:12px;"></div>
+      </div>
+
+      <div id="scoreCardsContainer" style="display:flex;flex-direction:column;gap:0.75rem;"></div>
+
+      <div style="background:rgba(15,23,42,0.6);border:1px solid #334155;border-radius:12px;padding:1rem;">
+        <h4 style="color:#38bdf8;font-size:0.85rem;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;">💡 Coach Feedback</h4>
+        <p id="modalFeedback" style="color:#e2e8f0;font-size:0.9rem;line-height:1.5;"></p>
+      </div>
+
+      <button id="closeModalBtn" style="background:#2563eb;color:white;border:none;padding:0.9rem;border-radius:10px;font-weight:600;font-size:1rem;cursor:pointer;margin-top:0.5rem;">Close & Start New Call</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Audio Queue with Played Sentence Tracking for State Truncation ---
+    class AudioQueue {
+      constructor(onSpeakingChange) {
+        this.queue = [];
+        this.isPlaying = false;
+        this.currentAudio = null;
+        this.playedSentences = [];
+        this.currentSentence = "";
+        this.onSpeakingChange = onSpeakingChange;
+      }
+
+      enqueue(blob, sentenceText) {
+        this.queue.push({ blob, text: sentenceText });
+        if (!this.isPlaying) {
+          this.playNext();
+        }
+      }
+
+      playNext() {
+        if (this.queue.length === 0) {
+          this.isPlaying = false;
+          if (this.onSpeakingChange) this.onSpeakingChange(false);
+          return;
+        }
+        this.isPlaying = true;
+        if (this.onSpeakingChange) this.onSpeakingChange(true);
+
+        const item = this.queue.shift();
+        this.currentSentence = item.text;
+        const url = URL.createObjectURL(item.blob);
+        this.currentAudio = new Audio(url);
+
+        this.currentAudio.onended = () => {
+          this.playedSentences.push(this.currentSentence);
+          URL.revokeObjectURL(url);
+          this.playNext();
+        };
+
+        this.currentAudio.onerror = (e) => {
+          console.error("Audio error:", e);
+          URL.revokeObjectURL(url);
+          this.playNext();
+        };
+
+        this.currentAudio.play().catch(e => {
+          console.warn("Autoplay blocked:", e);
+          this.playNext();
+        });
+      }
+
+      getHeardText() {
+        // Returns the sentences the user actually heard
+        const heard = [...this.playedSentences];
+        if (this.currentSentence && this.isPlaying) {
+          // Add partial current sentence
+          heard.push(this.currentSentence);
+        }
+        return heard.join(" ").trim();
+      }
+
+      stopAll() {
+        this.queue = [];
+        if (this.currentAudio) {
+          this.currentAudio.pause();
+          this.currentAudio = null;
+        }
+        this.isPlaying = false;
+        if (this.onSpeakingChange) this.onSpeakingChange(false);
+      }
+
+      reset() {
+        this.stopAll();
+        this.playedSentences = [];
+        this.currentSentence = "";
+      }
+    }
+
+    // --- 16-bit Mono WAV Encoder for Float32Array PCM ---
+    function floatTo16BitPCM(float32Array) {
+      const buffer = new ArrayBuffer(44 + float32Array.length * 2);
+      const view = new DataView(buffer);
+      function writeString(offset, string) {
+        for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+      }
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + float32Array.length * 2, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM format
+      view.setUint16(22, 1, true); // Mono
+      view.setUint32(24, 16000, true); // 16kHz
+      view.setUint32(28, 32000, true); // byte rate (16000 * 2)
+      view.setUint16(32, 2, true); // block align
+      view.setUint16(34, 16, true); // 16-bit
+      writeString(36, 'data');
+      view.setUint32(40, float32Array.length * 2, true);
+      let offset = 44;
+      for (let i = 0; i < float32Array.length; i++, offset += 2) {
+        const s = Math.max(-1, Math.min(1, float32Array[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    let ws = null;
+    let myvad = null;
+    let mediaStream = null;
+    let rec = null;
+    let chunks = [];
+    let isRecording = false;
+    let currentMode = "vad"; // 'vad', 'click', 'hold'
+    let isAssistantSpeaking = false;
+    let isAssistantGenerating = false;
+    let recordStartTime = 0;
+    let timerInterval = null;
+
+    // DOM Elements
+    const wsDot = document.getElementById("wsDot");
+    const wsText = document.getElementById("wsText");
+    const talkBtn = document.getElementById("talk");
+    const btnIcon = document.getElementById("btnIcon");
+    const btnLabel = document.getElementById("btnLabel");
+    const statusText = document.getElementById("status");
+    const chat = document.getElementById("chat");
+    const resetBtn = document.getElementById("reset");
+    const errorBanner = document.getElementById("errorBanner");
+    const modeVADBtn = document.getElementById("modeVAD");
+    const modeClickBtn = document.getElementById("modeClick");
+    const modeHoldBtn = document.getElementById("modeHold");
+
+    let currentAssistantBubble = null;
+    let currentTimingsBar = null;
+
+    const audioQueue = new AudioQueue((speaking) => {
+      isAssistantSpeaking = speaking;
+      if (speaking) {
+        if (currentMode === "vad") {
+          talkBtn.className = "action-btn speaking";
+          btnIcon.textContent = "🔊";
+          btnLabel.textContent = "Ravi speaking (Speak to interrupt)";
+          statusText.textContent = "Ravi is speaking. You can interrupt him anytime!";
+        } else {
+          talkBtn.className = "action-btn speaking";
+          btnIcon.textContent = "🔊";
+          btnLabel.textContent = "Ravi speaking...";
+        }
+      } else {
+        if (!isRecording) resetButtonState();
+      }
+    });
+
+    // --- Barge-in Trigger ---
+    function triggerBargeIn() {
+      if (isAssistantSpeaking || isAssistantGenerating) {
+        console.log("[Barge-in] User interrupted! Cutting audio and trimming history.");
+        const heardText = audioQueue.getHeardText();
+        audioQueue.stopAll();
+        isAssistantSpeaking = false;
+        isAssistantGenerating = false;
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            action: "barge_in",
+            spoken_text: heardText
+          }));
+        }
+
+        if (currentAssistantBubble) {
+          currentAssistantBubble.innerHTML = (heardText || currentAssistantBubble.textContent) + 
+            ` <span class="interrupted-tag">⚡ Interrupted</span>`;
+        }
+        statusText.textContent = "⚡ You interrupted Ravi! Listening to you...";
+      }
+    }
+
+    // --- WebSocket ---
+    // Only the visible tab listens: a background tab would otherwise hear the trainee too
+    document.addEventListener("visibilitychange", () => {
+      if (currentMode !== "vad" || !myvad) return;
+      if (document.hidden) {
+        myvad.pause();
+      } else if (!scoreBtn.disabled) {
+        myvad.start();
+      }
+    });
+
+    let hadConnection = false;
+    const langSelect = document.getElementById("langSelect");
+    let chosenLanguage = null;
+    langSelect.addEventListener("change", () => {
+      chosenLanguage = langSelect.value;
+      audioQueue.reset();
+      isAssistantSpeaking = false;
+      isAssistantGenerating = false;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "set_language", language: chosenLanguage }));
+      }
+    });
+
+    function connectWS() {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(`${proto}//${window.location.host}/ws`);
+
+      ws.onopen = () => {
+        wsDot.className = "ws-dot connected";
+        wsText.textContent = "WebSocket Connected (Streaming & Barge-in Ready)";
+        if (hadConnection) {
+          // The server keeps call history per connection; after a reconnect Ravi remembers nothing
+          audioQueue.reset();
+          isAssistantSpeaking = false;
+          isAssistantGenerating = false;
+          chat.innerHTML = `
+            <div class="msg assistant">
+              <div class="bubble"><em>Connection was lost, so a new call has started. Introduce yourself again.</em></div>
+              <div class="msg-meta">CallSim System</div>
+            </div>
+          `;
+          scoreBtn.textContent = "📊 End & Score Call";
+          scoreBtn.disabled = false;
+          resetButtonState();
+        }
+        hadConnection = true;
+      };
+
+      ws.onclose = () => {
+        wsDot.className = "ws-dot";
+        wsText.textContent = "Disconnected. Reconnecting...";
+        setTimeout(connectWS, 2000);
+      };
+
+      ws.onerror = (err) => console.error("WS error:", err);
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === "user_transcription") {
+          appendMessage("user", msg.text, msg.stt_ms);
+          createStreamingAssistantBubble();
+          audioQueue.reset();
+          isAssistantGenerating = true;
+
+          talkBtn.className = "action-btn processing";
+          btnIcon.textContent = "⚡";
+          btnLabel.textContent = "Ravi thinking...";
+          statusText.textContent = `You spoke (STT: ${msg.stt_ms}ms). Generating response...`;
+        }
+        else if (msg.type === "llm_delta") {
+          if (currentAssistantBubble && isAssistantGenerating) {
+            currentAssistantBubble.textContent += msg.delta;
+            chat.scrollTop = chat.scrollHeight;
+          }
+        }
+        else if (msg.type === "first_audio") {
+          statusText.textContent = `⚡ First audio received in ${msg.time_to_first_audio_ms}ms!`;
+          if (currentTimingsBar) {
+            const pill = document.createElement("span");
+            pill.className = "timing-pill ttfa";
+            pill.textContent = `TTFA: ${msg.time_to_first_audio_ms}ms`;
+            currentTimingsBar.prepend(pill);
+          }
+        }
+        else if (msg.type === "audio_chunk") {
+          if (!isAssistantGenerating && !isAssistantSpeaking) return; // Drop if interrupted
+          const binaryStr = atob(msg.audio_b64);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+          const blob = new Blob([bytes], { type: "audio/mpeg" });
+          audioQueue.enqueue(blob, msg.text);
+        }
+        else if (msg.type === "turn_complete") {
+          isAssistantGenerating = false;
+          if (currentTimingsBar && msg.timings) {
+            const t = msg.timings;
+            currentTimingsBar.innerHTML = `
+              <span class="timing-pill ttfa">⚡ TTFA: ${t.time_to_first_audio_ms}ms</span>
+              <span class="timing-pill">STT: ${t.stt_ms}ms</span>
+              <span class="timing-pill" style="color:#94a3b8">Total: ${t.total_ms}ms</span>
+            `;
+          }
+        }
+        else if (msg.type === "hello") {
+          if (!langSelect.options.length) {
+            for (const l of msg.languages) langSelect.add(new Option(l.label, l.code));
+          }
+          // A reconnect lands on the server default; restore the trainee's choice
+          if (chosenLanguage && chosenLanguage !== msg.language) {
+            ws.send(JSON.stringify({ action: "set_language", language: chosenLanguage }));
+          } else {
+            langSelect.value = msg.language;
+          }
+        }
+        else if (msg.type === "language_ack") {
+          langSelect.value = msg.language;
+          const label = langSelect.options[langSelect.selectedIndex]?.text || msg.language;
+          chat.innerHTML = `
+            <div class="msg assistant">
+              <div class="bubble"><em>New call in ${label}. Ravi will reply in ${label}; speak into your mic to introduce yourself.</em></div>
+              <div class="msg-meta">CallSim System</div>
+            </div>
+          `;
+          statusText.textContent = `Language: ${label}. Ready.`;
+          resetButtonState();
+        }
+        else if (msg.type === "scorecard") {
+          showScorecard(msg);
+        }
+        else if (msg.type === "barge_in_ack") {
+          console.log("[Barge-in] Confirmed by server. Truncated to:", msg.truncated_to);
+        }
+        else if (msg.type === "notice") {
+          showError(msg.message);
+          resetButtonState();
+        }
+        else if (msg.type === "error") {
+          showError(msg.message);
+          resetButtonState();
+        }
+      };
+    }
+
+    connectWS();
+
+    function createStreamingAssistantBubble() {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "msg assistant";
+
+      currentAssistantBubble = document.createElement("div");
+      currentAssistantBubble.className = "bubble";
+      currentAssistantBubble.textContent = "";
+      msgDiv.appendChild(currentAssistantBubble);
+
+      const meta = document.createElement("div");
+      meta.className = "msg-meta";
+
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = "Ravi";
+      meta.appendChild(nameSpan);
+
+      currentTimingsBar = document.createElement("div");
+      currentTimingsBar.className = "timings-bar";
+      meta.appendChild(currentTimingsBar);
+
+      msgDiv.appendChild(meta);
+      chat.appendChild(msgDiv);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.style.display = "block";
+      setTimeout(() => { errorBanner.style.display = "none"; }, 6000);
+    }
+
+    // --- Initialize Silero VAD for Hands-Free Call ---
+    async function initVAD() {
+      if (myvad) return;
+      try {
+        statusText.textContent = "Loading Silero VAD engine...";
+        myvad = await vad.MicVAD.new({
+          positiveSpeechThreshold: 0.75,
+          negativeSpeechThreshold: 0.60,
+          minSpeechFrames: 4,
+          redemptionFrames: 14, // ~700ms silence threshold before auto-sending
+          onSpeechStart: () => {
+            if (currentMode !== "vad") return;
+            triggerBargeIn();
+            isRecording = true;
+            talkBtn.className = "action-btn recording";
+            btnIcon.textContent = "🔴";
+            btnLabel.textContent = "Listening to you...";
+            statusText.textContent = "Speech detected... Speak naturally.";
+          },
+          onSpeechEnd: (audio) => {
+            if (currentMode !== "vad") return;
+            isRecording = false;
+            const wavBlob = floatTo16BitPCM(audio);
+            if (wavBlob.size > 2000) {
+              talkBtn.className = "action-btn processing";
+              btnIcon.textContent = "⚡";
+              btnLabel.textContent = "Processing...";
+              statusText.textContent = "Sending voice to Ravi...";
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(wavBlob);
+              }
+            } else {
+              resetButtonState();
+            }
+          }
+        });
+        myvad.start();
+        statusText.textContent = "Live call active! Speak anytime; interrupt Ravi to barge in.";
+      } catch (err) {
+        console.warn("VAD init notice (will fallback to Click mode):", err);
+        statusText.textContent = "VAD auto-mic requires user click. Click button to begin.";
+      }
+    }
+
+    // Mode Switchers
+    modeVADBtn.onclick = () => {
+      currentMode = "vad";
+      modeVADBtn.classList.add("active");
+      modeClickBtn.classList.remove("active");
+      modeHoldBtn.classList.remove("active");
+      initVAD();
+      resetButtonState();
+    };
+
+    modeClickBtn.onclick = () => {
+      currentMode = "click";
+      if (myvad) myvad.pause();
+      modeClickBtn.classList.add("active");
+      modeVADBtn.classList.remove("active");
+      modeHoldBtn.classList.remove("active");
+      resetButtonState();
+    };
+
+    modeHoldBtn.onclick = () => {
+      currentMode = "hold";
+      if (myvad) myvad.pause();
+      modeHoldBtn.classList.add("active");
+      modeVADBtn.classList.remove("active");
+      modeClickBtn.classList.remove("active");
+      resetButtonState();
+    };
+
+    function resetButtonState() {
+      clearInterval(timerInterval);
+      if (currentMode === "vad") {
+        talkBtn.className = "action-btn vad-active";
+        btnIcon.textContent = "📞";
+        btnLabel.textContent = "Live Call (Listening...)";
+        statusText.textContent = "Hands-free active. Speak into mic anytime; interrupt Ravi to barge in.";
+      } else if (currentMode === "click") {
+        talkBtn.className = "action-btn";
+        btnIcon.textContent = "🎙️";
+        btnLabel.textContent = "Click to Talk";
+        statusText.textContent = "Ready. Click button to speak.";
+      } else {
+        talkBtn.className = "action-btn";
+        btnIcon.textContent = "🎙️";
+        btnLabel.textContent = "Hold to Talk";
+        statusText.textContent = "Ready. Hold button while speaking.";
+      }
+    }
+
+    async function ensureMic() {
+      if (!mediaStream) {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+      }
+      return mediaStream;
+    }
+
+    // Manual Recording Fallback (for Click and Hold modes)
+    async function startManualRecording() {
+      triggerBargeIn();
+      if (isRecording) return;
+      try {
+        const stream = await ensureMic();
+        chunks = [];
+        rec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
+        rec.onstop = handleManualSend;
+        rec.start(100);
+        isRecording = true;
+        recordStartTime = Date.now();
+
+        talkBtn.className = "action-btn recording";
+        btnIcon.textContent = "🔴";
+        btnLabel.textContent = currentMode === "click" ? "Click to Stop (00:00)" : "Release when done (00:00)";
+        statusText.textContent = "Listening... Speak your sentence clearly.";
+
+        timerInterval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+          const secs = (elapsed % 60).toString().padStart(2, "0");
+          const mins = Math.floor(elapsed / 60).toString().padStart(2, "0");
+          btnLabel.textContent = `${currentMode === "click" ? "Click to Stop" : "Release when done"} (${mins}:${secs})`;
+        }, 500);
+      } catch (err) {
+        showError("Microphone access error: " + err.message);
+      }
+    }
+
+    function stopManualRecording() {
+      if (!isRecording || !rec) return;
+      isRecording = false;
+      clearInterval(timerInterval);
+      if (rec.state === "recording") rec.stop();
+    }
+
+    async function handleManualSend() {
+      const duration = Date.now() - recordStartTime;
+      if (duration < 600) {
+        showError("Audio was too short (< 0.6s). Please speak a full sentence.");
+        resetButtonState();
+        return;
+      }
+      talkBtn.className = "action-btn processing";
+      btnIcon.textContent = "⚡";
+      btnLabel.textContent = "Processing...";
+      statusText.textContent = "Sending voice to Ravi...";
+
+      const audioBlob = new Blob(chunks, { type: "audio/webm" });
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(audioBlob);
+      }
+    }
+
+    function appendMessage(role, text, stt_ms) {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = `msg ${role}`;
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      msgDiv.appendChild(bubble);
+
+      const meta = document.createElement("div");
+      meta.className = "msg-meta";
+
+      if (role === "user") {
+        meta.innerHTML = `You <span class="timing-pill">STT: ${stt_ms}ms</span>`;
+      }
+      msgDiv.appendChild(meta);
+      chat.appendChild(msgDiv);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    // Button interactions
+    talkBtn.addEventListener("click", () => {
+      if (currentMode === "vad") {
+        // In VAD mode, clicking can also trigger VAD start if not active
+        initVAD();
+      } else if (currentMode === "click") {
+        if (!isRecording) startManualRecording();
+        else stopManualRecording();
+      }
+    });
+
+    talkBtn.addEventListener("mousedown", () => {
+      if (currentMode === "hold") startManualRecording();
+    });
+    window.addEventListener("mouseup", () => {
+      if (currentMode === "hold") stopManualRecording();
+    });
+
+    talkBtn.addEventListener("touchstart", (e) => {
+      if (currentMode === "hold") { e.preventDefault(); startManualRecording(); }
+    }, { passive: false });
+    window.addEventListener("touchend", () => {
+      if (currentMode === "hold") stopManualRecording();
+    });
+
+    resetBtn.addEventListener("click", () => {
+      audioQueue.reset();
+      isAssistantSpeaking = false;
+      isAssistantGenerating = false;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "reset" }));
+      }
+      chat.innerHTML = `
+        <div class="msg assistant">
+          <div class="bubble"><em>New call started. Speak into your mic to introduce yourself. Interrupt Ravi anytime!</em></div>
+          <div class="msg-meta">CallSim System</div>
+        </div>
+      `;
+      statusText.textContent = "Call reset. Ready.";
+      resetButtonState();
+    });
+
+    // Start VAD on first click anywhere to satisfy browser AudioContext permissions
+    document.body.addEventListener("click", () => {
+      if (currentMode === "vad") initVAD();
+    }, { once: true });
+
+    // --- Stage 5: Score Call Button ---
+    const scoreBtn = document.getElementById("scoreBtn");
+    const scorecardModal = document.getElementById("scorecardModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+
+    const criteriaLabels = {
+      "opening": "📞 Opening",
+      "handling_objections": "🤝 Handling Objections",
+      "honesty_about_charges": "💰 Honesty About Charges",
+      "closing": "✅ Closing"
+    };
+
+    const scoreColors = {
+      1: "#ef4444", 2: "#f97316", 3: "#eab308", 4: "#22c55e", 5: "#10b981"
+    };
+
+    scoreBtn.addEventListener("click", () => {
+      audioQueue.stopAll();
+      if (myvad) myvad.pause();
+
+      scoreBtn.textContent = "⏳ Scoring...";
+      scoreBtn.disabled = true;
+      statusText.textContent = "Evaluating your call with QA rubric...";
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showError("Not connected to the server. Wait for reconnect and try again.");
+        scoreBtn.textContent = "📊 End & Score Call";
+        scoreBtn.disabled = false;
+        return;
+      }
+      ws.send(JSON.stringify({ action: "score" }));
+    });
+
+    function showScorecard(data) {
+      try {
+        if (data.error) {
+          showError(data.error);
+          resetButtonState();
+          statusText.textContent = "⚠️ " + data.error;
+          if (currentMode === "vad" && myvad) myvad.start();
+          return;
+        }
+
+        // Populate modal
+        document.getElementById("modalCallId").textContent = `Call ID: ${data.call_id} | Saved to: ${data.transcript_path}`;
+        document.getElementById("modalOverallScore").textContent = `${data.overall_score?.toFixed(1) || "?"} / 5`;
+
+        const container = document.getElementById("scoreCardsContainer");
+        container.innerHTML = "";
+
+        const scores = data.scores || {};
+        const rationale = data.rationale || {};
+
+        for (const [key, label] of Object.entries(criteriaLabels)) {
+          const score = scores[key] || 0;
+          const reason = rationale[key] || "";
+          const color = scoreColors[score] || "#94a3b8";
+          const barWidth = (score / 5) * 100;
+
+          const card = document.createElement("div");
+          card.style.cssText = "background:rgba(15,23,42,0.5);border:1px solid #334155;border-radius:12px;padding:0.85rem 1rem;";
+          card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+              <span style="font-weight:600;font-size:0.9rem;color:#e2e8f0;">${label}</span>
+              <span style="font-size:1.1rem;font-weight:700;color:${color};">${score}/5</span>
+            </div>
+            <div style="background:#0f172a;border-radius:6px;height:6px;overflow:hidden;margin-bottom:0.4rem;">
+              <div style="background:${color};width:${barWidth}%;height:100%;border-radius:6px;transition:width 0.5s ease;"></div>
+            </div>
+            <p style="color:#94a3b8;font-size:0.8rem;line-height:1.4;">${reason}</p>
+          `;
+          container.appendChild(card);
+        }
+
+        document.getElementById("modalFeedback").textContent = data.summary_feedback || "No feedback available.";
+
+        scorecardModal.style.display = "flex";
+
+      } catch (err) {
+        showError("Scoring error: " + err.message);
+      } finally {
+        scoreBtn.textContent = "📊 End & Score Call";
+        scoreBtn.disabled = false;
+      }
+    }
+
+    closeModalBtn.addEventListener("click", () => {
+      scorecardModal.style.display = "none";
+      // Auto-reset the call
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "reset" }));
+      }
+      chat.innerHTML = `
+        <div class="msg assistant">
+          <div class="bubble"><em>New call started. Speak into your mic to introduce yourself.</em></div>
+          <div class="msg-meta">CallSim System</div>
+        </div>
+      `;
+      resetButtonState();
+      if (currentMode === "vad" && myvad) myvad.start();
+    });
+  </script>
+</body>
+</html>
