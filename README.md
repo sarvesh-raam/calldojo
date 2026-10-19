@@ -198,6 +198,7 @@ single shared history and is not used by the UI.
 ```
 server.py            FastAPI app: WebSocket call loop, streaming, barge-in, scoring hook
 languages.py         Per-language voice / STT / LLM / persona settings
+limits.py            Public-demo usage caps (off unless DEMO_MODE=1)
 scorer.py            QA rubric, red flags + caps, output validation
 evaluate_scorer.py   Benchmark runner (agreement, MAE, bias, run-to-run variance)
 benchmark/           dev.json (tuning) and test.json (held out) labelled calls
@@ -213,6 +214,25 @@ notes.md             Stage-by-stage build log and learnings
 | `GROQ_API_KEY` | – | All Groq calls (required) |
 | `GROQ_LLM_MODEL` | `qwen/qwen3.8-27b` | Ravi's model for English calls |
 | `GROQ_EVAL_MODEL` | `openai/gpt-oss-20b` | The QA scorer |
+
+### Running a public demo
+
+A public link spends your Groq quota on every visitor. Set `DEMO_MODE=1` to turn on the
+limits in [`limits.py`](limits.py). They are off by default, so local use is unlimited.
+
+| Variable | Default | Limit |
+|---|---|---|
+| `DEMO_MODE` | off | `1` enables everything below and disables `POST /turn` |
+| `DEMO_TURNS_PER_CALL` | 15 | Turns before the visitor must score or restart |
+| `DEMO_TURNS_PER_VISITOR_DAY` | 45 | Turns per visitor (IP) per UTC day |
+| `DEMO_SCORES_PER_VISITOR_DAY` | 3 | Scorecards per visitor per day |
+| `DEMO_TURNS_PER_DAY` | 400 | Turns across all visitors per day |
+| `DEMO_SCORES_PER_DAY` | 40 | Scorecards across all visitors (~100k scorer tokens) |
+| `DEMO_MAX_CONNECTIONS` | 10 | Simultaneous calls |
+| `DEMO_VIDEO_URL` | – | Linked from every limit message, so a capped visitor still sees the product |
+
+Hitting a limit shows a message on the page and never reaches Groq. Calls too short to
+score don't count against the scorecard limits.
 
 ---
 

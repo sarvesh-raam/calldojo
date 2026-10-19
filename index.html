@@ -181,6 +181,7 @@
     .notice { text-align: center; font-size: 0.8rem; color: var(--ink-3); padding: 0.25rem 0; }
     .empty { margin: auto; text-align: center; color: var(--ink-3); font-size: 0.88rem; max-width: 22rem; }
 
+    .banner a { color: inherit; font-weight: 600; }
     .banner {
       display: none;
       grid-column: 1 / -1;
@@ -261,6 +262,7 @@
         Ravi is nervous about <b>hidden charges</b> and <b>missing an EMI</b>.
         Introduce yourself, answer him honestly, and agree on next steps.
       </p>
+      <p id="demoNote" class="hint" hidden></p>
 
       <div class="callstate">
         <div id="state" class="state" data-kind="idle"><i></i><span id="stateText">Not started</span></div>
@@ -524,6 +526,21 @@
       return { textEl, lat };
     }
 
+    // Demo limits: unlike errors, this message stays until the visitor acts on it
+    function showLimit(message, videoUrl) {
+      clearTimeout(showError.timer);
+      errorBanner.textContent = message + " ";
+      if (videoUrl) {
+        const a = document.createElement("a");
+        a.href = videoUrl;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = "Watch the demo video";
+        errorBanner.appendChild(a);
+      }
+      errorBanner.style.display = "block";
+    }
+
     function showError(msg) {
       errorBanner.textContent = msg;
       errorBanner.style.display = "block";
@@ -657,6 +674,16 @@
             langLabel.textContent = langSelect.options[langSelect.selectedIndex]?.text || "";
           }
           if (myvad || currentMode !== "vad") resetButtonState();
+          if (msg.demo) {
+            const note = $("demoNote");
+            note.textContent = `Public demo: up to ${msg.turns_per_call} turns per call and ${msg.scores_per_day} feedback reports a day.`;
+            note.hidden = false;
+          }
+        }
+        else if (msg.type === "limit") {
+          showLimit(msg.message, msg.video_url);
+          isAssistantGenerating = false;
+          resetButtonState();
         }
         else if (msg.type === "language_ack") {
           langSelect.value = msg.language;
@@ -871,7 +898,8 @@
     function showScorecard(data) {
       try {
         if (data.error) {
-          showError(data.error);
+          if (data.demo) showLimit(data.error, data.video_url);
+          else showError(data.error);
           resetButtonState();
           statusText.textContent = data.error;
           if (currentMode === "vad" && myvad) myvad.start();

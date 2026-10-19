@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 from groq import Groq, AsyncGroq
 import edge_tts
 from languages import LANGUAGES, DEFAULT_LANGUAGE, get_language
+from limits import limits, DEMO_MODE
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -71,7 +72,7 @@ async def tts(text: str, voice: str = LANGUAGES[DEFAULT_LANGUAGE]["voice"]) -> b
 
 
 import json
-from fastapi import FastAPI, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 
 def extract_sentences(buffer: str):
     sentences = []
@@ -118,8 +119,17 @@ def extract_first_clause(buffer: str):
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
+    busy = limits.connect()
+    if busy:
+        await ws.send_json({"type": "limit", "message": busy, **limits.info()})
+        await ws.close()
+        return
+    # Behind a hosting proxy the client address is the proxy's; the real one is in X-Forwarded-For
+    visitor = (ws.headers.get("x-forwarded-for", "").split(",")[0].strip()
+               or (ws.client.host if ws.client else "unknown"))
     print("[WebSocket] Client connected for streaming & VAD")
     active_turn_task = None
+    turns_this_call = 0
     # One call per connection, so two tabs or trainees never share a conversation
     lang_code = DEFAULT_LANGUAGE
     lang = get_language(lang_code)
@@ -128,6 +138,7 @@ async def websocket_endpoint(ws: WebSocket):
         "type": "hello",
         "language": lang_code,
         "languages": [{"code": c, "label": l["label"]} for c, l in LANGUAGES.items()],
+        **limits.info(),
     })
 
     async def run_turn(audio_bytes: bytes):
@@ -279,6 +290,12 @@ async def websocket_endpoint(ws: WebSocket):
                 # receive() reports a closed tab as a message, not an exception
                 raise WebSocketDisconnect(data.get("code", 1000))
             if "bytes" in data and data["bytes"]:
+                denied = limits.check_turn(visitor, turns_this_call, len(data["bytes"]))
+                if denied:
+                    await ws.send_json({"type": "limit", "message": denied, **limits.info()})
+                    continue
+                limits.record_turn(visitor)
+                turns_this_call += 1
                 # If a previous turn is still generating, cancel it
                 if active_turn_task and not active_turn_task.done():
                     active_turn_task.cancel()
@@ -316,6 +333,7 @@ async def websocket_endpoint(ws: WebSocket):
                     if active_turn_task and not active_turn_task.done():
                         active_turn_task.cancel()
                     del history[1:]
+                    turns_this_call = 0
                     print("[WebSocket] Call history reset")
                     await ws.send_json({"type": "reset_ack", "ok": True})
 
@@ -327,13 +345,22 @@ async def websocket_endpoint(ws: WebSocket):
                     if code in LANGUAGES:
                         lang_code, lang = code, LANGUAGES[code]
                     history[:] = [system_prompt(lang)]
+                    turns_this_call = 0
                     print(f"[WebSocket] Language set to {lang_code}; new call started")
                     await ws.send_json({"type": "language_ack", "language": lang_code})
 
                 elif action == "score":
                     if active_turn_task and not active_turn_task.done():
                         active_turn_task.cancel()
-                    await ws.send_json({"type": "scorecard", **await score_call(history, lang_code)})
+                    denied = limits.check_score(visitor)
+                    if denied:
+                        await ws.send_json({"type": "scorecard", "error": denied, **limits.info()})
+                        continue
+                    result = await score_call(history, lang_code)
+                    # Only count attempts that reached the scorer API (not "call too short")
+                    if "scores" in result or result.get("error", "").startswith("Scoring failed"):
+                        limits.record_score(visitor)
+                    await ws.send_json({"type": "scorecard", **result})
 
     except WebSocketDisconnect:
         if active_turn_task and not active_turn_task.done():
@@ -341,6 +368,8 @@ async def websocket_endpoint(ws: WebSocket):
         print("[WebSocket] Client disconnected")
     except Exception as e:
         print(f"[WebSocket] Error: {e}")
+    finally:
+        limits.disconnect()
 
 
 @app.get("/")
@@ -387,6 +416,9 @@ async def score_call(history: list, language: str) -> dict:
 
 @app.post("/turn")
 async def turn(audio: UploadFile):
+    if DEMO_MODE:
+        # Unmetered profiling endpoint; never expose it on a public demo
+        raise HTTPException(status_code=404)
     data = await audio.read()
     if len(data) == 0:
         return {"error": "No audio received"}
