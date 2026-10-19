@@ -3,351 +3,325 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CallSim: Phone Roleplay with Ravi (Stage 4 VAD & Barge-In)</title>
-  <!-- ONNX Runtime & Silero VAD Web for Browser Voice Activity Detection -->
+  <title>CallDojo</title>
+  <!-- Silero VAD runs in the browser (ONNX Runtime) to detect when the trainee starts/stops speaking -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js"></script>
 
   <style>
     :root {
-      --bg: #0b1120;
-      --card: #1e293b;
-      --border: #334155;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --danger: #ef4444;
-      --accent: #10b981;
-      --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --bg: #f4f3ef;
+      --surface: #ffffff;
+      --surface-2: #f9f8f5;
+      --line: #e3e1da;
+      --ink: #1d1d1b;
+      --ink-2: #5d5b55;
+      --ink-3: #8c8a83;
+      --accent: #1f6a55;
+      --accent-soft: #e3efe9;
+      --warn: #a15c07;
+      --warn-soft: #fbf0dc;
+      --bad: #b3261e;
+      --bad-soft: #fbe9e7;
+      --you: #2b4a7a;
+      --radius: 12px;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151614;
+        --surface: #1d1e1b;
+        --surface-2: #232420;
+        --line: #33342f;
+        --ink: #ecebe6;
+        --ink-2: #b1afa7;
+        --ink-3: #85837c;
+        --accent: #5fb898;
+        --accent-soft: #20352d;
+        --warn: #e0a548;
+        --warn-soft: #3a2e1a;
+        --bad: #ef8a80;
+        --bad-soft: #3d2220;
+        --you: #8fb0e3;
+      }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: var(--bg);
-      color: var(--text);
+      color: var(--ink);
       font-family: var(--font);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
-    }
-    .container {
-      width: 100%;
-      max-width: 740px;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-    header {
-      text-align: center;
-    }
-    h1 {
-      font-size: 1.85rem;
-      font-weight: 700;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    .badge-stage4 {
-      background: rgba(168, 85, 247, 0.2);
-      color: #c084fc;
-      border: 1px solid rgba(168, 85, 247, 0.4);
-      font-size: 0.75rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 9999px;
-    }
-    .subtitle {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-      margin-top: 0.4rem;
-    }
-    .ws-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.75rem;
-      margin-top: 0.3rem;
-      color: var(--text-muted);
-    }
-    .ws-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ef4444;
-    }
-    .ws-dot.connected {
-      background: #10b981;
-      box-shadow: 0 0 8px #10b981;
-    }
-    .controls-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 1.75rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.25rem;
-      box-shadow: 0 10px 30px -5px rgba(0,0,0,0.4);
-    }
-    .mode-selector {
-      display: flex;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--border);
-      padding: 4px;
-      border-radius: 9999px;
-      font-size: 0.8rem;
-      gap: 2px;
-    }
-    .mode-btn {
-      padding: 0.4rem 1rem;
-      border-radius: 9999px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .mode-btn.active {
-      background: var(--primary);
-      color: white;
-      font-weight: 600;
-    }
-    .action-btn {
-      width: 100%;
-      max-width: 380px;
-      padding: 1.15rem 2rem;
-      font-size: 1.15rem;
-      font-weight: 600;
-      border: none;
-      border-radius: 9999px;
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      background: var(--primary);
-      color: white;
-      box-shadow: 0 4px 18px rgba(37, 99, 235, 0.45);
-    }
-    .action-btn:hover {
-      background: var(--primary-hover);
-      transform: translateY(-2px);
-    }
-    .action-btn.vad-active {
-      background: #0f766e;
-      box-shadow: 0 0 20px rgba(15, 118, 110, 0.5);
-    }
-    .action-btn.recording {
-      background: var(--danger);
-      box-shadow: 0 0 24px rgba(239, 68, 68, 0.7);
-      animation: pulse 1.2s infinite;
-    }
-    .action-btn.processing {
-      background: #d97706;
-      box-shadow: 0 0 20px rgba(217, 119, 6, 0.4);
-      cursor: wait;
-    }
-    .action-btn.speaking {
-      background: #059669;
-      box-shadow: 0 0 24px rgba(5, 150, 105, 0.6);
-    }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.025); }
-    }
-    .aux-controls {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      width: 100%;
-      justify-content: space-between;
-    }
-    .secondary-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      padding: 0.45rem 0.9rem;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .secondary-btn:hover {
-      color: var(--text);
-      border-color: #64748b;
-      background: rgba(255, 255, 255, 0.05);
-    }
-    #langSelect option {
-      background: #0f172a;
-      color: #e2e8f0;
-    }
-    .status-text {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-    .chat-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 1.25rem;
-      min-height: 280px;
-      max-height: 520px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .msg {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      max-width: 85%;
-    }
-    .msg.user {
-      align-self: flex-end;
-    }
-    .msg.user .bubble {
-      background: #2563eb;
-      color: white;
-      border-radius: 14px 14px 2px 14px;
-    }
-    .msg.assistant {
-      align-self: flex-start;
-    }
-    .msg.assistant .bubble {
-      background: #334155;
-      color: #f1f5f9;
-      border-radius: 14px 14px 14px 2px;
-    }
-    .bubble {
-      padding: 0.85rem 1.15rem;
-      font-size: 0.95rem;
+      font-size: 15px;
       line-height: 1.5;
+      min-height: 100vh;
     }
-    .msg-meta {
-      font-size: 0.75rem;
-      color: var(--text-muted);
+    button, select { font: inherit; color: inherit; }
+
+    /* Top bar */
+    .topbar {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0 0.3rem;
-    }
-    .msg.user .msg-meta {
-      justify-content: flex-end;
-    }
-    .timings-bar {
-      display: flex;
-      gap: 0.35rem;
       flex-wrap: wrap;
-      margin-top: 0.2rem;
+      align-items: center;
+      gap: 0.5rem 1rem;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 1rem 1rem 0.5rem;
     }
-    .timing-pill {
-      background: rgba(0,0,0,0.35);
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-family: monospace;
-      color: #93c5fd;
+    .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+    .brand span { color: var(--ink-3); font-weight: 400; margin-left: 0.4rem; }
+    .topbar .spacer { flex: 1; }
+    .conn { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--ink-3); }
+    .conn i { width: 7px; height: 7px; border-radius: 50%; background: var(--bad); }
+    .conn.ok i { background: var(--accent); }
+    .toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--ink-2); cursor: pointer; user-select: none; }
+
+    .page {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0.5rem 1rem 2rem;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
     }
-    .timing-pill.ttfa {
-      background: rgba(16, 185, 129, 0.25);
-      color: #34d399;
-      font-weight: 700;
-      border: 1px solid rgba(16, 185, 129, 0.4);
+    @media (max-width: 760px) {
+      .page { grid-template-columns: minmax(0, 1fr); }
+      .caller { position: static; }
+      .brand span { display: none; }
     }
-    .interrupted-tag {
-      background: rgba(239, 68, 68, 0.2);
-      color: #f87171;
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-      font-size: 0.7rem;
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    /* Caller card */
+    .caller { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; position: sticky; top: 1rem; }
+    .who { display: flex; gap: 0.8rem; align-items: center; }
+    .avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--accent-soft); color: var(--accent);
+      display: grid; place-items: center; font-weight: 700; font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .who h2 { font-size: 1rem; font-weight: 650; }
+    .who p { font-size: 0.82rem; color: var(--ink-2); }
+    .brief { font-size: 0.85rem; color: var(--ink-2); background: var(--surface-2); border-radius: 8px; padding: 0.7rem 0.8rem; }
+    .brief b { color: var(--ink); font-weight: 600; }
+
+    .callstate { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; }
+    .state { display: flex; align-items: center; gap: 0.5rem; color: var(--ink-2); }
+    .state i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+    .state[data-kind="listening"] i { background: var(--accent); }
+    .state[data-kind="you"] i { background: var(--you); animation: blink 1s infinite; }
+    .state[data-kind="thinking"] i { background: var(--warn); animation: blink 0.8s infinite; }
+    .state[data-kind="ravi"] i { background: var(--accent); animation: blink 1.2s infinite; }
+    .state[data-kind="off"] i { background: var(--bad); }
+    @keyframes blink { 50% { opacity: 0.25; } }
+    .timer { font-family: var(--mono); color: var(--ink-3); font-size: 0.85rem; }
+
+    .mic {
+      width: 100%;
+      padding: 0.85rem;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      cursor: pointer;
       font-weight: 600;
-      border: 1px solid rgba(239, 68, 68, 0.35);
+      transition: background 0.15s, border-color 0.15s;
     }
-    .error-banner {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid var(--danger);
-      color: #fca5a5;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      font-size: 0.85rem;
+    .mic:hover { border-color: var(--ink-3); }
+    .mic.live { background: var(--accent-soft); border-color: transparent; color: var(--accent); cursor: default; }
+    .mic.rec { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+    .hint { font-size: 0.78rem; color: var(--ink-3); margin-top: -0.5rem; }
+
+    .settings { display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 0.75rem; align-items: center; font-size: 0.82rem; color: var(--ink-2); }
+    .settings select {
+      width: 100%;
+      padding: 0.35rem 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .actions { display: flex; flex-direction: column; gap: 0.5rem; }
+    .btn {
+      padding: 0.7rem 1rem;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn:hover { border-color: var(--ink-3); }
+    .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .btn.primary:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.55; cursor: wait; }
+
+    /* Transcript */
+    .transcript { min-height: 460px; max-height: calc(100vh - 7rem); display: flex; flex-direction: column; }
+    .transcript header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 0.9rem 1.1rem; border-bottom: 1px solid var(--line);
+    }
+    .transcript header h3 { font-size: 0.9rem; font-weight: 650; }
+    .transcript header span { font-size: 0.78rem; color: var(--ink-3); }
+    #log { overflow-y: auto; padding: 0.75rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.9rem; flex: 1; }
+
+    .line { display: grid; grid-template-columns: 3.2rem 1fr; gap: 0.6rem; }
+    .line .t { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-3); padding-top: 0.15rem; }
+    .line .who-name { font-size: 0.78rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; }
+    .line.you .who-name { color: var(--you); }
+    .line.ravi .who-name { color: var(--accent); }
+    .line .text { white-space: pre-wrap; }
+    .line .cut { color: var(--ink-3); font-style: italic; font-size: 0.85rem; }
+    .lat { display: none; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); margin-top: 0.15rem; }
+    body.show-latency .lat { display: block; }
+    .notice { text-align: center; font-size: 0.8rem; color: var(--ink-3); padding: 0.25rem 0; }
+    .empty { margin: auto; text-align: center; color: var(--ink-3); font-size: 0.88rem; max-width: 22rem; }
+
+    .banner {
       display: none;
+      grid-column: 1 / -1;
+      background: var(--bad-soft);
+      color: var(--bad);
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.85rem;
     }
+
+    /* Scorecard */
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(20, 20, 18, 0.45);
+      z-index: 10;
+      align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .report {
+      background: var(--surface);
+      border-radius: 14px;
+      width: 100%; max-width: 600px; max-height: 92vh; overflow-y: auto;
+      padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 1.1rem;
+    }
+    .report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+    .report-head h2 { font-size: 1.15rem; }
+    .report-head p { font-size: 0.8rem; color: var(--ink-3); }
+    .overall { text-align: right; }
+    .overall b { font-size: 1.8rem; line-height: 1; }
+    .overall small { color: var(--ink-3); }
+    .verdict { display: inline-block; margin-top: 0.3rem; font-size: 0.75rem; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; }
+    .verdict.good { background: var(--accent-soft); color: var(--accent); }
+    .verdict.mid { background: var(--warn-soft); color: var(--warn); }
+    .verdict.bad { background: var(--bad-soft); color: var(--bad); }
+
+    .crit { border-top: 1px solid var(--line); padding-top: 0.8rem; }
+    .crit-top { display: flex; justify-content: space-between; align-items: center; }
+    .crit-top h4 { font-size: 0.9rem; font-weight: 650; }
+    .dots { display: flex; gap: 4px; }
+    .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+    .dots.s1 i:nth-child(-n+1), .dots.s2 i:nth-child(-n+2) { background: var(--bad); }
+    .dots.s3 i:nth-child(-n+3) { background: var(--warn); }
+    .dots.s4 i:nth-child(-n+4), .dots.s5 i:nth-child(-n+5) { background: var(--accent); }
+    .crit p { font-size: 0.85rem; color: var(--ink-2); margin-top: 0.3rem; }
+    .crit .capped { font-size: 0.78rem; color: var(--bad); margin-top: 0.25rem; }
+
+    .flags { background: var(--bad-soft); border-radius: 8px; padding: 0.75rem 0.9rem; font-size: 0.85rem; }
+    .flags h4 { color: var(--bad); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+    .flags li { margin-left: 1rem; color: var(--ink); }
+    .flags q { color: var(--ink-2); }
+    .coach { background: var(--surface-2); border-radius: 8px; padding: 0.8rem 0.9rem; }
+    .coach h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 0.3rem; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>CallSim <span>📞</span> <span class="badge-stage4" style="background: rgba(168, 85, 247, 0.2); border-color: rgba(168, 85, 247, 0.4); color: #c084fc;">Stage 5: VAD, Barge-in & QA Scorer</span></h1>
-      <p class="subtitle">Hands-free Conversational VAD + Instant Barge-in + Automated 4-Criteria QA Evaluator</p>
-      <div class="ws-indicator">
-        <span id="wsDot" class="ws-dot"></span>
-        <span id="wsText">Connecting WebSocket...</span>
-      </div>
-    </header>
-
-    <div id="errorBanner" class="error-banner"></div>
-
-    <div class="controls-card">
-      <div class="mode-selector">
-        <button id="modeVAD" class="mode-btn active">🎙️ Hands-Free Call (VAD)</button>
-        <button id="modeClick" class="mode-btn">🖱️ Click to Talk</button>
-        <button id="modeHold" class="mode-btn">🖐️ Hold to Talk</button>
-      </div>
-
-      <button id="talk" class="action-btn vad-active">
-        <span id="btnIcon">📞</span>
-        <span id="btnLabel">Live Call (Listening...)</span>
-      </button>
-
-      <div class="aux-controls">
-        <span id="status" class="status-text">Hands-free active. Speak into mic anytime; interrupt Ravi to barge in.</span>
-        <div style="display:flex;gap:0.5rem;">
-          <select id="langSelect" class="secondary-btn" title="Ravi's language (switching starts a new call)"></select>
-          <button id="scoreBtn" class="secondary-btn" style="border-color:#38bdf8;color:#38bdf8;font-weight:600;">📊 End & Score Call</button>
-          <button id="reset" class="secondary-btn">New call (Reset)</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="chat" class="chat-card">
-      <div class="msg assistant">
-        <div class="bubble"><em>Stage 5 live call ready. Speak into your mic to roleplay as the loan officer. Click "End & Score Call" to see your QA evaluation!</em></div>
-        <div class="msg-meta">CallSim System</div>
-      </div>
-    </div>
+  <div class="topbar">
+    <div class="brand">CallDojo<span>loan call practice</span></div>
+    <div class="spacer"></div>
+    <label class="toggle"><input type="checkbox" id="latencyToggle"> Show latency</label>
+    <div id="conn" class="conn"><i></i><span id="connText">Connecting…</span></div>
   </div>
 
-  <!-- QA Scorecard Modal -->
-  <div id="scorecardModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);z-index:999;align-items:center;justify-content:center;padding:1rem;">
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:20px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;padding:2rem;display:flex;flex-direction:column;gap:1.25rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+  <main class="page">
+    <div id="errorBanner" class="banner"></div>
+
+    <aside class="panel caller">
+      <div class="who">
+        <div class="avatar">RK</div>
         <div>
-          <h2 style="font-size:1.5rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:0.5rem;">📊 Call QA Scorecard</h2>
-          <p id="modalCallId" style="color:#94a3b8;font-size:0.8rem;margin-top:0.2rem;"></p>
+          <h2>Ravi Kumar</h2>
+          <p>28 · runs a small shop · first business loan</p>
         </div>
-        <div id="modalOverallScore" style="background:#2563eb;color:white;font-size:1.4rem;font-weight:700;padding:0.4rem 1rem;border-radius:12px;"></div>
       </div>
 
-      <div id="scoreCardsContainer" style="display:flex;flex-direction:column;gap:0.75rem;"></div>
+      <p class="brief">
+        Ravi is nervous about <b>hidden charges</b> and <b>missing an EMI</b>.
+        Introduce yourself, answer him honestly, and agree on next steps.
+      </p>
 
-      <div style="background:rgba(15,23,42,0.6);border:1px solid #334155;border-radius:12px;padding:1rem;">
-        <h4 style="color:#38bdf8;font-size:0.85rem;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;">💡 Coach Feedback</h4>
-        <p id="modalFeedback" style="color:#e2e8f0;font-size:0.9rem;line-height:1.5;"></p>
+      <div class="callstate">
+        <div id="state" class="state" data-kind="idle"><i></i><span id="stateText">Not started</span></div>
+        <div id="timer" class="timer">00:00</div>
       </div>
 
-      <button id="closeModalBtn" style="background:#2563eb;color:white;border:none;padding:0.9rem;border-radius:10px;font-weight:600;font-size:1rem;cursor:pointer;margin-top:0.5rem;">Close & Start New Call</button>
+      <button id="talk" class="mic">Start call</button>
+      <p id="status" class="hint">Click to allow the microphone, then just talk.</p>
+
+      <div class="settings">
+        <label for="langSelect">Language</label>
+        <select id="langSelect" title="Switching language starts a new call"></select>
+        <label for="modeSelect">Mic</label>
+        <select id="modeSelect">
+          <option value="vad">Hands-free</option>
+          <option value="click">Click to talk</option>
+          <option value="hold">Hold to talk</option>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button id="scoreBtn" class="btn primary">End call &amp; get feedback</button>
+        <button id="reset" class="btn">Restart call</button>
+      </div>
+    </aside>
+
+    <section class="panel transcript">
+      <header>
+        <h3>Transcript</h3>
+        <span id="langLabel"></span>
+      </header>
+      <div id="log">
+        <p class="empty">The conversation will appear here. You are the loan officer; Ravi is the customer.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="scorecardModal" class="overlay">
+    <div class="report">
+      <div class="report-head">
+        <div>
+          <h2>Call feedback</h2>
+          <p id="modalCallId"></p>
+        </div>
+        <div class="overall">
+          <b id="modalOverallScore"></b><small> / 5</small><br>
+          <span id="modalVerdict" class="verdict"></span>
+        </div>
+      </div>
+      <div id="modalFlags"></div>
+      <div id="scoreCardsContainer"></div>
+      <div class="coach">
+        <h4>Coaching</h4>
+        <p id="modalFeedback"></p>
+      </div>
+      <button id="closeModalBtn" class="btn primary">Start a new call</button>
     </div>
   </div>
 
   <script>
-    // --- Audio Queue with Played Sentence Tracking for State Truncation ---
+    // --- Plays Ravi's sentences in order and remembers which ones were actually heard ---
     class AudioQueue {
       constructor(onSpeakingChange) {
         this.queue = [];
@@ -360,9 +334,7 @@
 
       enqueue(blob, sentenceText) {
         this.queue.push({ blob, text: sentenceText });
-        if (!this.isPlaying) {
-          this.playNext();
-        }
+        if (!this.isPlaying) this.playNext();
       }
 
       playNext() {
@@ -384,13 +356,11 @@
           URL.revokeObjectURL(url);
           this.playNext();
         };
-
         this.currentAudio.onerror = (e) => {
           console.error("Audio error:", e);
           URL.revokeObjectURL(url);
           this.playNext();
         };
-
         this.currentAudio.play().catch(e => {
           console.warn("Autoplay blocked:", e);
           this.playNext();
@@ -398,12 +368,8 @@
       }
 
       getHeardText() {
-        // Returns the sentences the user actually heard
         const heard = [...this.playedSentences];
-        if (this.currentSentence && this.isPlaying) {
-          // Add partial current sentence
-          heard.push(this.currentSentence);
-        }
+        if (this.currentSentence && this.isPlaying) heard.push(this.currentSentence);
         return heard.join(" ").trim();
       }
 
@@ -424,7 +390,7 @@
       }
     }
 
-    // --- 16-bit Mono WAV Encoder for Float32Array PCM ---
+    // --- 16 kHz mono WAV encoder for the VAD's Float32 PCM ---
     function floatTo16BitPCM(float32Array) {
       const buffer = new ArrayBuffer(44 + float32Array.length * 2);
       const view = new DataView(buffer);
@@ -436,12 +402,12 @@
       writeString(8, 'WAVE');
       writeString(12, 'fmt ');
       view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true); // PCM format
-      view.setUint16(22, 1, true); // Mono
-      view.setUint32(24, 16000, true); // 16kHz
-      view.setUint32(28, 32000, true); // byte rate (16000 * 2)
-      view.setUint16(32, 2, true); // block align
-      view.setUint16(34, 16, true); // 16-bit
+      view.setUint16(20, 1, true);      // PCM
+      view.setUint16(22, 1, true);      // mono
+      view.setUint32(24, 16000, true);  // 16 kHz
+      view.setUint32(28, 32000, true);  // byte rate
+      view.setUint16(32, 2, true);      // block align
+      view.setUint16(34, 16, true);     // 16-bit
       writeString(36, 'data');
       view.setUint32(40, float32Array.length * 2, true);
       let offset = 44;
@@ -462,68 +428,132 @@
     let isAssistantSpeaking = false;
     let isAssistantGenerating = false;
     let recordStartTime = 0;
-    let timerInterval = null;
+    let recordTimer = null;
 
-    // DOM Elements
-    const wsDot = document.getElementById("wsDot");
-    const wsText = document.getElementById("wsText");
-    const talkBtn = document.getElementById("talk");
-    const btnIcon = document.getElementById("btnIcon");
-    const btnLabel = document.getElementById("btnLabel");
-    const statusText = document.getElementById("status");
-    const chat = document.getElementById("chat");
-    const resetBtn = document.getElementById("reset");
-    const errorBanner = document.getElementById("errorBanner");
-    const modeVADBtn = document.getElementById("modeVAD");
-    const modeClickBtn = document.getElementById("modeClick");
-    const modeHoldBtn = document.getElementById("modeHold");
+    const $ = (id) => document.getElementById(id);
+    const conn = $("conn"), connText = $("connText");
+    const talkBtn = $("talk");
+    const statusText = $("status");
+    const stateEl = $("state"), stateText = $("stateText");
+    const log = $("log");
+    const resetBtn = $("reset");
+    const errorBanner = $("errorBanner");
+    const modeSelect = $("modeSelect");
+    const langSelect = $("langSelect");
+    const langLabel = $("langLabel");
+    const scoreBtn = $("scoreBtn");
 
-    let currentAssistantBubble = null;
-    let currentTimingsBar = null;
+    let currentRaviText = null;   // text node of the line Ravi is currently speaking
+    let currentRaviLat = null;
+
+    // --- Call timer: starts at the trainee's first words, resets with each new call ---
+    let callStart = null;
+    setInterval(() => {
+      if (!callStart) return;
+      const s = Math.floor((Date.now() - callStart) / 1000);
+      $("timer").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    }, 500);
+    function elapsedLabel() {
+      if (!callStart) return "00:00";
+      const s = Math.floor((Date.now() - callStart) / 1000);
+      return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    }
+
+    function setState(kind, text) {
+      stateEl.dataset.kind = kind;
+      stateText.textContent = text;
+    }
+
+    // --- Latency toggle (a per-viewer preference) ---
+    const latencyToggle = $("latencyToggle");
+    try { latencyToggle.checked = localStorage.getItem("showLatency") === "1"; } catch (e) {}
+    document.body.classList.toggle("show-latency", latencyToggle.checked);
+    latencyToggle.addEventListener("change", () => {
+      document.body.classList.toggle("show-latency", latencyToggle.checked);
+      try { localStorage.setItem("showLatency", latencyToggle.checked ? "1" : "0"); } catch (e) {}
+    });
 
     const audioQueue = new AudioQueue((speaking) => {
       isAssistantSpeaking = speaking;
       if (speaking) {
-        if (currentMode === "vad") {
-          talkBtn.className = "action-btn speaking";
-          btnIcon.textContent = "🔊";
-          btnLabel.textContent = "Ravi speaking (Speak to interrupt)";
-          statusText.textContent = "Ravi is speaking. You can interrupt him anytime!";
-        } else {
-          talkBtn.className = "action-btn speaking";
-          btnIcon.textContent = "🔊";
-          btnLabel.textContent = "Ravi speaking...";
-        }
-      } else {
-        if (!isRecording) resetButtonState();
+        setState("ravi", "Ravi is speaking");
+        statusText.textContent = currentMode === "vad" ? "Start talking to interrupt him." : "";
+      } else if (!isRecording) {
+        resetButtonState();
       }
     });
 
-    // --- Barge-in Trigger ---
+    // --- Transcript ---
+    function clearLog(noticeText) {
+      log.innerHTML = "";
+      currentRaviText = null;
+      currentRaviLat = null;
+      callStart = null;
+      $("timer").textContent = "00:00";
+      if (noticeText) addNotice(noticeText);
+    }
+
+    function addNotice(text) {
+      const p = document.createElement("p");
+      p.className = "notice";
+      p.textContent = text;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function addLine(role, text) {
+      log.querySelector(".empty")?.remove();
+      const line = document.createElement("div");
+      line.className = `line ${role}`;
+      const t = document.createElement("div");
+      t.className = "t";
+      t.textContent = elapsedLabel();
+      const body = document.createElement("div");
+      const name = document.createElement("div");
+      name.className = "who-name";
+      name.textContent = role === "you" ? "You" : "Ravi";
+      const textEl = document.createElement("div");
+      textEl.className = "text";
+      textEl.textContent = text;
+      const lat = document.createElement("div");
+      lat.className = "lat";
+      body.append(name, textEl, lat);
+      line.append(t, body);
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+      return { textEl, lat };
+    }
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.style.display = "block";
+      clearTimeout(showError.timer);
+      showError.timer = setTimeout(() => { errorBanner.style.display = "none"; }, 6000);
+    }
+
+    // --- Barge-in: the trainee started talking over Ravi ---
     function triggerBargeIn() {
       if (isAssistantSpeaking || isAssistantGenerating) {
-        console.log("[Barge-in] User interrupted! Cutting audio and trimming history.");
         const heardText = audioQueue.getHeardText();
         audioQueue.stopAll();
         isAssistantSpeaking = false;
         isAssistantGenerating = false;
 
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: "barge_in",
-            spoken_text: heardText
-          }));
+          ws.send(JSON.stringify({ action: "barge_in", spoken_text: heardText }));
         }
-
-        if (currentAssistantBubble) {
-          currentAssistantBubble.innerHTML = (heardText || currentAssistantBubble.textContent) + 
-            ` <span class="interrupted-tag">⚡ Interrupted</span>`;
+        if (currentRaviText) {
+          // Show only what Ravi actually got to say
+          currentRaviText.textContent = heardText || currentRaviText.textContent;
+          const cut = document.createElement("span");
+          cut.className = "cut";
+          cut.textContent = " — cut off";
+          currentRaviText.appendChild(cut);
+          currentRaviText = null;
         }
-        statusText.textContent = "⚡ You interrupted Ravi! Listening to you...";
       }
     }
 
-    // --- WebSocket ---
     // Only the visible tab listens: a background tab would otherwise hear the trainee too
     document.addEventListener("visibilitychange", () => {
       if (currentMode !== "vad" || !myvad) return;
@@ -534,8 +564,7 @@
       }
     });
 
-    let hadConnection = false;
-    const langSelect = document.getElementById("langSelect");
+    // --- Language ---
     let chosenLanguage = null;
     langSelect.addEventListener("change", () => {
       chosenLanguage = langSelect.value;
@@ -547,25 +576,22 @@
       }
     });
 
+    // --- WebSocket ---
+    let hadConnection = false;
     function connectWS() {
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
       ws = new WebSocket(`${proto}//${window.location.host}/ws`);
 
       ws.onopen = () => {
-        wsDot.className = "ws-dot connected";
-        wsText.textContent = "WebSocket Connected (Streaming & Barge-in Ready)";
+        conn.className = "conn ok";
+        connText.textContent = "Connected";
         if (hadConnection) {
           // The server keeps call history per connection; after a reconnect Ravi remembers nothing
           audioQueue.reset();
           isAssistantSpeaking = false;
           isAssistantGenerating = false;
-          chat.innerHTML = `
-            <div class="msg assistant">
-              <div class="bubble"><em>Connection was lost, so a new call has started. Introduce yourself again.</em></div>
-              <div class="msg-meta">CallSim System</div>
-            </div>
-          `;
-          scoreBtn.textContent = "📊 End & Score Call";
+          clearLog("Connection was lost, so a new call has started. Introduce yourself again.");
+          scoreBtn.textContent = "End call & get feedback";
           scoreBtn.disabled = false;
           resetButtonState();
         }
@@ -573,8 +599,9 @@
       };
 
       ws.onclose = () => {
-        wsDot.className = "ws-dot";
-        wsText.textContent = "Disconnected. Reconnecting...";
+        conn.className = "conn";
+        connText.textContent = "Reconnecting…";
+        setState("off", "Disconnected");
         setTimeout(connectWS, 2000);
       };
 
@@ -584,48 +611,38 @@
         const msg = JSON.parse(event.data);
 
         if (msg.type === "user_transcription") {
-          appendMessage("user", msg.text, msg.stt_ms);
-          createStreamingAssistantBubble();
+          if (!callStart) callStart = Date.now();
+          const you = addLine("you", msg.text);
+          you.lat.textContent = `speech-to-text ${msg.stt_ms} ms`;
+          const ravi = addLine("ravi", "");
+          currentRaviText = ravi.textEl;
+          currentRaviLat = ravi.lat;
           audioQueue.reset();
           isAssistantGenerating = true;
-
-          talkBtn.className = "action-btn processing";
-          btnIcon.textContent = "⚡";
-          btnLabel.textContent = "Ravi thinking...";
-          statusText.textContent = `You spoke (STT: ${msg.stt_ms}ms). Generating response...`;
+          setState("thinking", "Ravi is thinking");
+          statusText.textContent = "";
         }
         else if (msg.type === "llm_delta") {
-          if (currentAssistantBubble && isAssistantGenerating) {
-            currentAssistantBubble.textContent += msg.delta;
-            chat.scrollTop = chat.scrollHeight;
+          if (currentRaviText && isAssistantGenerating) {
+            currentRaviText.textContent += msg.delta;
+            log.scrollTop = log.scrollHeight;
           }
         }
         else if (msg.type === "first_audio") {
-          statusText.textContent = `⚡ First audio received in ${msg.time_to_first_audio_ms}ms!`;
-          if (currentTimingsBar) {
-            const pill = document.createElement("span");
-            pill.className = "timing-pill ttfa";
-            pill.textContent = `TTFA: ${msg.time_to_first_audio_ms}ms`;
-            currentTimingsBar.prepend(pill);
-          }
+          if (currentRaviLat) currentRaviLat.textContent = `first audio ${msg.time_to_first_audio_ms} ms`;
         }
         else if (msg.type === "audio_chunk") {
-          if (!isAssistantGenerating && !isAssistantSpeaking) return; // Drop if interrupted
+          if (!isAssistantGenerating && !isAssistantSpeaking) return; // dropped after an interruption
           const binaryStr = atob(msg.audio_b64);
           const bytes = new Uint8Array(binaryStr.length);
           for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-          const blob = new Blob([bytes], { type: "audio/mpeg" });
-          audioQueue.enqueue(blob, msg.text);
+          audioQueue.enqueue(new Blob([bytes], { type: "audio/mpeg" }), msg.text);
         }
         else if (msg.type === "turn_complete") {
           isAssistantGenerating = false;
-          if (currentTimingsBar && msg.timings) {
+          if (currentRaviLat && msg.timings) {
             const t = msg.timings;
-            currentTimingsBar.innerHTML = `
-              <span class="timing-pill ttfa">⚡ TTFA: ${t.time_to_first_audio_ms}ms</span>
-              <span class="timing-pill">STT: ${t.stt_ms}ms</span>
-              <span class="timing-pill" style="color:#94a3b8">Total: ${t.total_ms}ms</span>
-            `;
+            currentRaviLat.textContent = `first audio ${t.time_to_first_audio_ms} ms · total ${t.total_ms} ms`;
           }
         }
         else if (msg.type === "hello") {
@@ -637,31 +654,21 @@
             ws.send(JSON.stringify({ action: "set_language", language: chosenLanguage }));
           } else {
             langSelect.value = msg.language;
+            langLabel.textContent = langSelect.options[langSelect.selectedIndex]?.text || "";
           }
+          if (myvad || currentMode !== "vad") resetButtonState();
         }
         else if (msg.type === "language_ack") {
           langSelect.value = msg.language;
           const label = langSelect.options[langSelect.selectedIndex]?.text || msg.language;
-          chat.innerHTML = `
-            <div class="msg assistant">
-              <div class="bubble"><em>New call in ${label}. Ravi will reply in ${label}; speak into your mic to introduce yourself.</em></div>
-              <div class="msg-meta">CallSim System</div>
-            </div>
-          `;
-          statusText.textContent = `Language: ${label}. Ready.`;
+          langLabel.textContent = label;
+          clearLog(`New call · Ravi will speak ${label}`);
           resetButtonState();
         }
         else if (msg.type === "scorecard") {
           showScorecard(msg);
         }
-        else if (msg.type === "barge_in_ack") {
-          console.log("[Barge-in] Confirmed by server. Truncated to:", msg.truncated_to);
-        }
-        else if (msg.type === "notice") {
-          showError(msg.message);
-          resetButtonState();
-        }
-        else if (msg.type === "error") {
+        else if (msg.type === "notice" || msg.type === "error") {
           showError(msg.message);
           resetButtonState();
         }
@@ -670,126 +677,66 @@
 
     connectWS();
 
-    function createStreamingAssistantBubble() {
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "msg assistant";
-
-      currentAssistantBubble = document.createElement("div");
-      currentAssistantBubble.className = "bubble";
-      currentAssistantBubble.textContent = "";
-      msgDiv.appendChild(currentAssistantBubble);
-
-      const meta = document.createElement("div");
-      meta.className = "msg-meta";
-
-      const nameSpan = document.createElement("span");
-      nameSpan.textContent = "Ravi";
-      meta.appendChild(nameSpan);
-
-      currentTimingsBar = document.createElement("div");
-      currentTimingsBar.className = "timings-bar";
-      meta.appendChild(currentTimingsBar);
-
-      msgDiv.appendChild(meta);
-      chat.appendChild(msgDiv);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    function showError(msg) {
-      errorBanner.textContent = msg;
-      errorBanner.style.display = "block";
-      setTimeout(() => { errorBanner.style.display = "none"; }, 6000);
-    }
-
-    // --- Initialize Silero VAD for Hands-Free Call ---
+    // --- Voice activity detection (hands-free mode) ---
     async function initVAD() {
       if (myvad) return;
       try {
-        statusText.textContent = "Loading Silero VAD engine...";
+        statusText.textContent = "Starting microphone…";
         myvad = await vad.MicVAD.new({
           positiveSpeechThreshold: 0.75,
           negativeSpeechThreshold: 0.60,
           minSpeechFrames: 4,
-          redemptionFrames: 14, // ~700ms silence threshold before auto-sending
+          redemptionFrames: 14, // ~700 ms of silence ends the turn
           onSpeechStart: () => {
             if (currentMode !== "vad") return;
             triggerBargeIn();
             isRecording = true;
-            talkBtn.className = "action-btn recording";
-            btnIcon.textContent = "🔴";
-            btnLabel.textContent = "Listening to you...";
-            statusText.textContent = "Speech detected... Speak naturally.";
+            setState("you", "You are speaking");
+            statusText.textContent = "";
           },
           onSpeechEnd: (audio) => {
             if (currentMode !== "vad") return;
             isRecording = false;
             const wavBlob = floatTo16BitPCM(audio);
-            if (wavBlob.size > 2000) {
-              talkBtn.className = "action-btn processing";
-              btnIcon.textContent = "⚡";
-              btnLabel.textContent = "Processing...";
-              statusText.textContent = "Sending voice to Ravi...";
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(wavBlob);
-              }
+            if (wavBlob.size > 2000 && ws && ws.readyState === WebSocket.OPEN) {
+              setState("thinking", "Sending…");
+              ws.send(wavBlob);
             } else {
               resetButtonState();
             }
           }
         });
         myvad.start();
-        statusText.textContent = "Live call active! Speak anytime; interrupt Ravi to barge in.";
+        resetButtonState();
       } catch (err) {
-        console.warn("VAD init notice (will fallback to Click mode):", err);
-        statusText.textContent = "VAD auto-mic requires user click. Click button to begin.";
+        console.warn("VAD could not start:", err);
+        statusText.textContent = "Couldn't start the microphone. Allow mic access and click Start call.";
       }
     }
 
-    // Mode Switchers
-    modeVADBtn.onclick = () => {
-      currentMode = "vad";
-      modeVADBtn.classList.add("active");
-      modeClickBtn.classList.remove("active");
-      modeHoldBtn.classList.remove("active");
-      initVAD();
+    modeSelect.addEventListener("change", () => {
+      currentMode = modeSelect.value;
+      if (currentMode === "vad") initVAD();
+      else if (myvad) myvad.pause();
       resetButtonState();
-    };
-
-    modeClickBtn.onclick = () => {
-      currentMode = "click";
-      if (myvad) myvad.pause();
-      modeClickBtn.classList.add("active");
-      modeVADBtn.classList.remove("active");
-      modeHoldBtn.classList.remove("active");
-      resetButtonState();
-    };
-
-    modeHoldBtn.onclick = () => {
-      currentMode = "hold";
-      if (myvad) myvad.pause();
-      modeHoldBtn.classList.add("active");
-      modeVADBtn.classList.remove("active");
-      modeClickBtn.classList.remove("active");
-      resetButtonState();
-    };
+    });
 
     function resetButtonState() {
-      clearInterval(timerInterval);
+      clearInterval(recordTimer);
+      talkBtn.classList.remove("rec");
       if (currentMode === "vad") {
-        talkBtn.className = "action-btn vad-active";
-        btnIcon.textContent = "📞";
-        btnLabel.textContent = "Live Call (Listening...)";
-        statusText.textContent = "Hands-free active. Speak into mic anytime; interrupt Ravi to barge in.";
-      } else if (currentMode === "click") {
-        talkBtn.className = "action-btn";
-        btnIcon.textContent = "🎙️";
-        btnLabel.textContent = "Click to Talk";
-        statusText.textContent = "Ready. Click button to speak.";
+        const live = !!myvad;
+        talkBtn.classList.toggle("live", live);
+        talkBtn.textContent = live ? "Listening" : "Start call";
+        setState(live ? "listening" : "idle", live ? "Your turn" : "Not started");
+        statusText.textContent = live
+          ? "Just talk. Pause for a moment when you're done; talk over Ravi to interrupt."
+          : "Click to allow the microphone, then just talk.";
       } else {
-        talkBtn.className = "action-btn";
-        btnIcon.textContent = "🎙️";
-        btnLabel.textContent = "Hold to Talk";
-        statusText.textContent = "Ready. Hold button while speaking.";
+        talkBtn.classList.remove("live");
+        talkBtn.textContent = currentMode === "click" ? "Click to talk" : "Hold to talk";
+        setState("listening", "Your turn");
+        statusText.textContent = currentMode === "click" ? "Click once to start, again to send." : "Hold while you speak, release to send.";
       }
     }
 
@@ -802,7 +749,7 @@
       return mediaStream;
     }
 
-    // Manual Recording Fallback (for Click and Hold modes)
+    // --- Push-to-talk modes ---
     async function startManualRecording() {
       triggerBargeIn();
       if (isRecording) return;
@@ -815,17 +762,13 @@
         rec.start(100);
         isRecording = true;
         recordStartTime = Date.now();
-
-        talkBtn.className = "action-btn recording";
-        btnIcon.textContent = "🔴";
-        btnLabel.textContent = currentMode === "click" ? "Click to Stop (00:00)" : "Release when done (00:00)";
-        statusText.textContent = "Listening... Speak your sentence clearly.";
-
-        timerInterval = setInterval(() => {
-          const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
-          const secs = (elapsed % 60).toString().padStart(2, "0");
-          const mins = Math.floor(elapsed / 60).toString().padStart(2, "0");
-          btnLabel.textContent = `${currentMode === "click" ? "Click to Stop" : "Release when done"} (${mins}:${secs})`;
+        talkBtn.classList.add("rec");
+        setState("you", "Recording");
+        const verb = currentMode === "click" ? "Click to send" : "Release to send";
+        talkBtn.textContent = `${verb} · 0:00`;
+        recordTimer = setInterval(() => {
+          const s = Math.floor((Date.now() - recordStartTime) / 1000);
+          talkBtn.textContent = `${verb} · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
         }, 500);
       } catch (err) {
         showError("Microphone access error: " + err.message);
@@ -835,194 +778,174 @@
     function stopManualRecording() {
       if (!isRecording || !rec) return;
       isRecording = false;
-      clearInterval(timerInterval);
+      clearInterval(recordTimer);
       if (rec.state === "recording") rec.stop();
     }
 
-    async function handleManualSend() {
-      const duration = Date.now() - recordStartTime;
-      if (duration < 600) {
-        showError("Audio was too short (< 0.6s). Please speak a full sentence.");
+    function handleManualSend() {
+      if (Date.now() - recordStartTime < 600) {
+        showError("That was too short. Please say a full sentence.");
         resetButtonState();
         return;
       }
-      talkBtn.className = "action-btn processing";
-      btnIcon.textContent = "⚡";
-      btnLabel.textContent = "Processing...";
-      statusText.textContent = "Sending voice to Ravi...";
-
-      const audioBlob = new Blob(chunks, { type: "audio/webm" });
+      talkBtn.classList.remove("rec");
+      talkBtn.textContent = "Sending…";
+      setState("thinking", "Sending…");
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(audioBlob);
+        ws.send(new Blob(chunks, { type: "audio/webm" }));
       }
     }
 
-    function appendMessage(role, text, stt_ms) {
-      const msgDiv = document.createElement("div");
-      msgDiv.className = `msg ${role}`;
-
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.textContent = text;
-      msgDiv.appendChild(bubble);
-
-      const meta = document.createElement("div");
-      meta.className = "msg-meta";
-
-      if (role === "user") {
-        meta.innerHTML = `You <span class="timing-pill">STT: ${stt_ms}ms</span>`;
-      }
-      msgDiv.appendChild(meta);
-      chat.appendChild(msgDiv);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Button interactions
     talkBtn.addEventListener("click", () => {
-      if (currentMode === "vad") {
-        // In VAD mode, clicking can also trigger VAD start if not active
-        initVAD();
-      } else if (currentMode === "click") {
+      if (currentMode === "vad") initVAD();
+      else if (currentMode === "click") {
         if (!isRecording) startManualRecording();
         else stopManualRecording();
       }
     });
-
-    talkBtn.addEventListener("mousedown", () => {
-      if (currentMode === "hold") startManualRecording();
-    });
-    window.addEventListener("mouseup", () => {
-      if (currentMode === "hold") stopManualRecording();
-    });
-
+    talkBtn.addEventListener("mousedown", () => { if (currentMode === "hold") startManualRecording(); });
+    window.addEventListener("mouseup", () => { if (currentMode === "hold") stopManualRecording(); });
     talkBtn.addEventListener("touchstart", (e) => {
       if (currentMode === "hold") { e.preventDefault(); startManualRecording(); }
     }, { passive: false });
-    window.addEventListener("touchend", () => {
-      if (currentMode === "hold") stopManualRecording();
-    });
+    window.addEventListener("touchend", () => { if (currentMode === "hold") stopManualRecording(); });
 
-    resetBtn.addEventListener("click", () => {
+    function startNewCall(notice) {
       audioQueue.reset();
       isAssistantSpeaking = false;
       isAssistantGenerating = false;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ action: "reset" }));
       }
-      chat.innerHTML = `
-        <div class="msg assistant">
-          <div class="bubble"><em>New call started. Speak into your mic to introduce yourself. Interrupt Ravi anytime!</em></div>
-          <div class="msg-meta">CallSim System</div>
-        </div>
-      `;
-      statusText.textContent = "Call reset. Ready.";
+      clearLog(notice);
       resetButtonState();
-    });
+    }
 
-    // Start VAD on first click anywhere to satisfy browser AudioContext permissions
-    document.body.addEventListener("click", () => {
-      if (currentMode === "vad") initVAD();
-    }, { once: true });
+    resetBtn.addEventListener("click", () => startNewCall("New call started"));
 
-    // --- Stage 5: Score Call Button ---
-    const scoreBtn = document.getElementById("scoreBtn");
-    const scorecardModal = document.getElementById("scorecardModal");
-    const closeModalBtn = document.getElementById("closeModalBtn");
+    // --- Scoring ---
+    const scorecardModal = $("scorecardModal");
 
     const criteriaLabels = {
-      "opening": "📞 Opening",
-      "handling_objections": "🤝 Handling Objections",
-      "honesty_about_charges": "💰 Honesty About Charges",
-      "closing": "✅ Closing"
+      opening: "Opening",
+      handling_objections: "Handling objections",
+      honesty_about_charges: "Honesty about charges",
+      closing: "Closing"
     };
-
-    const scoreColors = {
-      1: "#ef4444", 2: "#f97316", 3: "#eab308", 4: "#22c55e", 5: "#10b981"
+    const flagLabels = {
+      false_or_implausible_claim: "False or implausible claim",
+      refused_or_postponed_charges: "Avoided a question about charges",
+      hedged_or_vague_figures: "Vague figures",
+      pressure_or_rudeness: "Pressure or rudeness",
+      pressure_or_rudeness_in_final_turn: "Pressure at the close",
+      unsafe_request: "Asked for OTP / PIN"
     };
 
     scoreBtn.addEventListener("click", () => {
-      audioQueue.stopAll();
-      if (myvad) myvad.pause();
-
-      scoreBtn.textContent = "⏳ Scoring...";
-      scoreBtn.disabled = true;
-      statusText.textContent = "Evaluating your call with QA rubric...";
-
       if (!ws || ws.readyState !== WebSocket.OPEN) {
-        showError("Not connected to the server. Wait for reconnect and try again.");
-        scoreBtn.textContent = "📊 End & Score Call";
-        scoreBtn.disabled = false;
+        showError("Not connected. Wait for it to reconnect and try again.");
         return;
       }
+      audioQueue.stopAll();
+      if (myvad) myvad.pause();
+      scoreBtn.textContent = "Scoring the call…";
+      scoreBtn.disabled = true;
+      setState("thinking", "Scoring");
       ws.send(JSON.stringify({ action: "score" }));
     });
+
+    function verdictFor(score) {
+      if (score >= 4.5) return ["Ready", "good"];
+      if (score >= 3.5) return ["Nearly there", "good"];
+      if (score >= 2.5) return ["Needs practice", "mid"];
+      return ["Not ready", "bad"];
+    }
+
+    function el(tag, className, text) {
+      const e = document.createElement(tag);
+      if (className) e.className = className;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
 
     function showScorecard(data) {
       try {
         if (data.error) {
           showError(data.error);
           resetButtonState();
-          statusText.textContent = "⚠️ " + data.error;
+          statusText.textContent = data.error;
           if (currentMode === "vad" && myvad) myvad.start();
           return;
         }
 
-        // Populate modal
-        document.getElementById("modalCallId").textContent = `Call ID: ${data.call_id} | Saved to: ${data.transcript_path}`;
-        document.getElementById("modalOverallScore").textContent = `${data.overall_score?.toFixed(1) || "?"} / 5`;
+        $("modalCallId").textContent = `Call ${data.call_id} · transcript saved`;
+        const overall = data.overall_score ?? 0;
+        $("modalOverallScore").textContent = overall.toFixed(1);
+        const [verdict, tone] = verdictFor(overall);
+        const v = $("modalVerdict");
+        v.textContent = verdict;
+        v.className = `verdict ${tone}`;
 
-        const container = document.getElementById("scoreCardsContainer");
+        // Model output is rendered as text, never as HTML
+        const flagsBox = $("modalFlags");
+        flagsBox.innerHTML = "";
+        const flags = Object.entries(data.red_flags || {});
+        if (flags.length) {
+          const box = el("div", "flags");
+          box.appendChild(el("h4", "", "Red flags"));
+          const ul = el("ul");
+          for (const [flag, quote] of flags) {
+            const li = el("li", "", flagLabels[flag] || flag);
+            if (quote) {
+              li.appendChild(document.createTextNode(": "));
+              li.appendChild(el("q", "", quote));
+            }
+            ul.appendChild(li);
+          }
+          box.appendChild(ul);
+          flagsBox.appendChild(box);
+        }
+
+        const container = $("scoreCardsContainer");
         container.innerHTML = "";
-
         const scores = data.scores || {};
         const rationale = data.rationale || {};
-
         for (const [key, label] of Object.entries(criteriaLabels)) {
           const score = scores[key] || 0;
-          const reason = rationale[key] || "";
-          const color = scoreColors[score] || "#94a3b8";
-          const barWidth = (score / 5) * 100;
+          let reason = rationale[key] || "";
+          // The scorer appends "[Capped 5->1: reason]" when a red flag lowered the score
+          const caps = [...reason.matchAll(/\s*\[Capped (\d)->(\d): ([^\]]+)\]/g)];
+          // and cites rubric anchors ("-> anchor 3"); neither is meant for the trainee
+          reason = reason.replace(/\s*\[Capped [^\]]+\]/g, "").replace(/\s*(->|→)\s*anchor\s*\d\.?/gi, ".").replace(/\.\.$/, ".");
 
-          const card = document.createElement("div");
-          card.style.cssText = "background:rgba(15,23,42,0.5);border:1px solid #334155;border-radius:12px;padding:0.85rem 1rem;";
-          card.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
-              <span style="font-weight:600;font-size:0.9rem;color:#e2e8f0;">${label}</span>
-              <span style="font-size:1.1rem;font-weight:700;color:${color};">${score}/5</span>
-            </div>
-            <div style="background:#0f172a;border-radius:6px;height:6px;overflow:hidden;margin-bottom:0.4rem;">
-              <div style="background:${color};width:${barWidth}%;height:100%;border-radius:6px;transition:width 0.5s ease;"></div>
-            </div>
-            <p style="color:#94a3b8;font-size:0.8rem;line-height:1.4;">${reason}</p>
-          `;
+          const card = el("div", "crit");
+          const top = el("div", "crit-top");
+          top.appendChild(el("h4", "", label));
+          const dots = el("div", `dots s${score}`);
+          for (let i = 0; i < 5; i++) dots.appendChild(el("i"));
+          dots.title = `${score} / 5`;
+          top.appendChild(dots);
+          card.appendChild(top);
+          card.appendChild(el("p", "", reason));
+          for (const c of caps) {
+            card.appendChild(el("div", "capped", `Lowered from ${c[1]} to ${c[2]}: ${c[3]}`));
+          }
           container.appendChild(card);
         }
 
-        document.getElementById("modalFeedback").textContent = data.summary_feedback || "No feedback available.";
-
+        $("modalFeedback").textContent = data.summary_feedback || "No coaching notes for this call.";
         scorecardModal.style.display = "flex";
-
       } catch (err) {
-        showError("Scoring error: " + err.message);
+        showError("Couldn't show the scorecard: " + err.message);
       } finally {
-        scoreBtn.textContent = "📊 End & Score Call";
+        scoreBtn.textContent = "End call & get feedback";
         scoreBtn.disabled = false;
       }
     }
 
-    closeModalBtn.addEventListener("click", () => {
+    $("closeModalBtn").addEventListener("click", () => {
       scorecardModal.style.display = "none";
-      // Auto-reset the call
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: "reset" }));
-      }
-      chat.innerHTML = `
-        <div class="msg assistant">
-          <div class="bubble"><em>New call started. Speak into your mic to introduce yourself.</em></div>
-          <div class="msg-meta">CallSim System</div>
-        </div>
-      `;
-      resetButtonState();
+      startNewCall("New call started");
       if (currentMode === "vad" && myvad) myvad.start();
     });
   </script>
