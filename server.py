@@ -377,6 +377,13 @@ def index():
     return FileResponse("index.html")
 
 
+# For the uptime monitor that keeps the free host awake. Never touches Groq, so pings cost no quota.
+# HEAD too: monitors often use HEAD, which a GET-only route would answer with 405.
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health():
+    return {"ok": True}
+
+
 from datetime import datetime
 from scorer import score_transcript
 

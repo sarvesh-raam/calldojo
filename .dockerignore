@@ -1,0 +1,9 @@
+.env
+.git
+.github
+__pycache__/
+*.pyc
+transcripts/
+benchmark/*_results*.txt
+docs/*.mp4
+tests/
