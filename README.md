@@ -6,6 +6,8 @@ Ravi answers out loud, can be interrupted mid-sentence, and speaks English, Hing
 Tanglish. At the end of the call an LLM grades the trainee on a 4-criterion banking QA
 rubric and gives coaching feedback.
 
+**▶ [Watch the 2-minute demo](https://drive.google.com/file/d/1-hEmO5fhhHWwHhXwAcqHx-mJpJoq1-3h/view?usp=sharing)**: a call, an interruption, Hinglish, and the scorer catching a lying agent.
+
 | A practice call | The feedback after a bad call |
 |---|---|
 | ![A call in progress: Ravi's card on the left, the live transcript with latency on the right](docs/call.png) | ![Scorecard flagging a false "no fees" claim and an OTP request, with every criterion at 1/5](docs/scorecard.png) |

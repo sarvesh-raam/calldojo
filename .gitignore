@@ -4,3 +4,5 @@ __pycache__/
 transcripts/
 # Benchmark run logs: regenerated each run, and rate-limit errors in them include the Groq org ID
 benchmark/*_results*.txt
+# Demo recordings are hosted on Google Drive; too large for the repo
+docs/*.mp4
