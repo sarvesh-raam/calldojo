@@ -2,7 +2,7 @@
 Scores agent calls against a strict 4-criteria rubric (1 to 5 scale).
 """
 import os, json
-from groq import Groq
+from groq import Groq, BadRequestError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,6 +11,7 @@ load_dotenv()
 client = Groq(api_key=os.environ.get("GROQ_API_KEY", "dummy_key"), max_retries=5, timeout=60)
 EVAL_MODEL = os.environ.get("GROQ_EVAL_MODEL", "openai/gpt-oss-20b")
 CRITERIA = ("opening", "handling_objections", "honesty_about_charges", "closing")
+SCORE_ATTEMPTS = 2
 
 # Red flag -> maximum score per criterion. Enforced in code because the model, scoring each
 # criterion from one quoted line, reliably misses lies and pressure elsewhere in the call.
@@ -131,19 +132,28 @@ def score_transcript(transcript: list) -> dict:
 
     prompt = f"{RUBRIC}\n\n--- CONVERSATION TRANSCRIPT ---\n{transcript_text}\n--- END TRANSCRIPT ---"
 
-    try:
-        completion = client.chat.completions.create(
-            model=EVAL_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,
-            response_format={"type": "json_object"}
-        )
-        result = json.loads(completion.choices[0].message.content)
-        return _validate(result)
-    except Exception as e:
-        # Never fabricate a scorecard: callers check "error" and show/skip it.
-        print(f"[Scorer Error] {e}")
-        return {"error": f"Scoring failed: {e}"}
+    # ~1 in 10 responses is malformed (Groq rejects invalid JSON with a 400, or a field is
+    # missing). These are random, so one retry recovers almost all of them.
+    last_error = None
+    for attempt in range(1, SCORE_ATTEMPTS + 1):
+        try:
+            completion = client.chat.completions.create(
+                model=EVAL_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            result = json.loads(completion.choices[0].message.content)
+            return _validate(result)
+        except (BadRequestError, ValueError) as e:  # JSONDecodeError is a ValueError
+            last_error = e
+            print(f"[Scorer] Attempt {attempt} returned malformed output: {str(e)[:120]}")
+        except Exception as e:
+            last_error = e
+            break
+    # Never fabricate a scorecard: callers check "error" and show/skip it.
+    print(f"[Scorer Error] {last_error}")
+    return {"error": f"Scoring failed: {last_error}"}
 
 
 def _validate(result: dict) -> dict:

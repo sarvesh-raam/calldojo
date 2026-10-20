@@ -152,7 +152,12 @@ never counted as agreement.
 | Original (3 anchors) | dev | 84.2% | 66.7% | Penalized calls for not listing every fee type |
 | Full anchors | dev | 96.2% | 80.0% | |
 | Full anchors | test | 86.7% | 71.5% | Only ~1.5 runs; honesty 67.8%, missed lies and pressure |
-| Full anchors + red-flag caps | test | *pending* | *pending* | |
+| Full anchors + red-flag caps | dev | 97.5% | 80.0% | |
+| **Full anchors + red-flag caps** | **test** | **98.6%** | **86.8%** | Honesty 100% within 1; every lie, pressure close and OTP request caught (2 runs, both 98.6%) |
+
+Reliability: in that run 4 of 40 scorings (10%) failed because the model returned malformed
+JSON. These were skipped, not counted. The scorer now retries once on malformed output, which
+recovers almost all of them.
 
 > **Label caveat:** the benchmark labels were written by the developers following the
 > rubric, not by independent QA reviewers. The numbers measure whether the scorer applies

@@ -12,7 +12,7 @@ Tracking progress, architectural learnings, and insights across all 6 stages.
 | **Stage 2** | Latency Profiling & Bottleneck Analysis | Latency breakdown table (`stt_ms`, `llm_ms`, `tts_ms`) | Completed |
 | **Stage 3** | Streaming & Overlapping (WebSockets) | Sentence boundary chunking; `time_to_first_audio` (TTFA) | Completed |
 | **Stage 4** | Conversational VAD & Barge-in | Natural turn-taking, interruption handling & state truncation | Completed |
-| **Stage 5** | Call Evaluation & LLM Scorer | 4-criterion rubric; Human vs. LLM scorer agreement metric | Built; held-out benchmark pending |
+| **Stage 5** | Call Evaluation & LLM Scorer | 4-criterion rubric; Human vs. LLM scorer agreement metric | Completed: 98.6% within 1 point on held-out test set |
 | **Stage 6** | Multilingual & Local Inference Stretch | Hindi/Tamil benchmarks, Faster-Whisper, Architecture README | Hinglish/Tanglish + README done; local STT deferred |
 
 ---
@@ -82,13 +82,16 @@ Tracking progress, architectural learnings, and insights across all 6 stages.
   | Original, 3 anchors | dev | 84.2% | 66.7% | Too harsh on honesty and closing (bias -0.87 each) |
   | Full anchors | dev | 96.2% | 80.0% | |
   | Full anchors | test | 86.7% | 71.5% | Honesty only 67.8% (bias +0.89): missed lies and pressure |
-  | + red-flag caps | test | *pending* | | Daily token limit hit; rerun tomorrow |
+  | + red-flag caps | dev | 97.5% | 80.0% | |
+  | **+ red-flag caps** | **test** | **98.6%** | **86.8%** | Honesty 67.8% -> 100% within 1; bias +0.89 -> +0.06. Same in both runs |
 
 - **What surprised me:**
   - The original "30-transcript" benchmark was 10 calls plus 20 word-for-word copies. Copies inflate the sample size without adding evidence; the real n was 10.
   - Some disagreements were the *labels'* fault: near-identical calls had different labels (call_06 vs call_08 closing). Three labels were fixed to match the written rubric; each fix is recorded in `label_notes`.
   - Telling the model to "check red flags first" did not work. It scored each criterion from one quoted line and still gave "never any penalty, pay whenever" + an OTP request 4/5 on honesty. Asking for yes/no facts and enforcing the caps in code is more reliable than asking for a judgment.
   - Groq free tier: the per-minute limit allows about 4 scorings/minute, and the per-day limit (200k tokens) is about 75 scorings, shared by the benchmark and every trainee.
+- **Red-flag caps fixed every earlier failure** on the held-out set, in both runs: the lying agent with an OTP request (test_05), the pressure close (test_14), the dodged late-fee question (test_08) and the hedged figures (test_02) now match their labels exactly. Two disagreements remain, both on opening/handling, not on safety.
+- **New finding:** the longer red-flag output made the model return malformed JSON in 4 of 40 scorings (10%). In the app that means 1 in 10 trainees would see "Scoring failed". Fixed with one retry on malformed output.
 - **What I'd do differently:** Get labels from real QA reviewers before tuning. Labels written by the same person who writes the rubric measure consistency, not human agreement. And budget API quota for the benchmark from the start.
 
 ---
