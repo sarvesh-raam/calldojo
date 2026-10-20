@@ -93,6 +93,8 @@ STEP 2 - SCORES. Score each criterion with the anchors above.
 
 Return ONLY a valid JSON object matching this schema. For each criterion, the evidence must name
 the agent's line AND the anchor it matches, e.g. "'Interest is around 12-14%' is a hedged figure -> anchor 3".
+Then write the reason for the trainee: one short sentence in plain English saying what they did well
+or what was missing, with no anchor numbers and no quotes, e.g. "Gave the rate as a range instead of an exact figure."
 {
   "red_flags": {
     "false_or_implausible_claim":         {"present": <bool>, "quote": "<agent line or empty>"},
@@ -103,10 +105,10 @@ the agent's line AND the anchor it matches, e.g. "'Interest is around 12-14%' is
     "unsafe_request":                     {"present": <bool>, "quote": "<agent line or empty>"}
   },
   "criteria": {
-    "opening":               {"evidence": "<agent line -> anchor N, 1 sentence>", "score": <int 1-5>},
-    "handling_objections":   {"evidence": "<agent line -> anchor N, 1 sentence>", "score": <int 1-5>},
-    "honesty_about_charges": {"evidence": "<agent line -> anchor N, 1 sentence>", "score": <int 1-5>},
-    "closing":               {"evidence": "<agent line -> anchor N, 1 sentence>", "score": <int 1-5>}
+    "opening":               {"evidence": "<agent line -> anchor N, 1 sentence>", "reason": "<for the trainee>", "score": <int 1-5>},
+    "handling_objections":   {"evidence": "<agent line -> anchor N, 1 sentence>", "reason": "<for the trainee>", "score": <int 1-5>},
+    "honesty_about_charges": {"evidence": "<agent line -> anchor N, 1 sentence>", "reason": "<for the trainee>", "score": <int 1-5>},
+    "closing":               {"evidence": "<agent line -> anchor N, 1 sentence>", "reason": "<for the trainee>", "score": <int 1-5>}
   },
   "summary_feedback": "<2-sentence actionable coaching advice for the agent>"
 }
@@ -166,14 +168,16 @@ def _validate(result: dict) -> dict:
     if not isinstance(flags, dict):
         raise ValueError("response missing 'red_flags'")
 
-    scores, rationale = {}, {}
+    scores, rationale, evidence = {}, {}, {}
     for c in CRITERIA:
         entry = criteria.get(c) or {}
         s = entry.get("score")
         if not isinstance(s, int) or not 1 <= s <= 5:
             raise ValueError(f"invalid score for {c!r}: {s!r}")
         scores[c] = s
-        rationale[c] = entry.get("evidence", "")
+        evidence[c] = entry.get("evidence", "")
+        # The trainee-facing reason; older-format responses only have evidence
+        rationale[c] = entry.get("reason") or evidence[c]
 
     raised = {}
     for flag, caps in FLAG_CAPS.items():
@@ -191,6 +195,7 @@ def _validate(result: dict) -> dict:
         # Derived from the criteria rather than trusting the model's arithmetic
         "overall_score": round(sum(scores.values()) / len(CRITERIA), 2),
         "rationale": rationale,
+        "evidence": evidence,
         "summary_feedback": result.get("summary_feedback", ""),
         "red_flags": raised,
     }

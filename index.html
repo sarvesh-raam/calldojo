@@ -228,6 +228,7 @@
     .dots.s3 i:nth-child(-n+3) { background: var(--warn); }
     .dots.s4 i:nth-child(-n+4), .dots.s5 i:nth-child(-n+5) { background: var(--accent); }
     .crit p { font-size: 0.85rem; color: var(--ink-2); margin-top: 0.3rem; }
+    .crit .evidence { font-size: 0.8rem; color: var(--ink-3); font-style: italic; margin-top: 0.2rem; }
     .crit .capped { font-size: 0.78rem; color: var(--bad); margin-top: 0.25rem; }
 
     .flags { background: var(--bad-soft); border-radius: 8px; padding: 0.75rem 0.9rem; font-size: 0.85rem; }
@@ -881,6 +882,11 @@
       ws.send(JSON.stringify({ action: "score" }));
     });
 
+    // The scorer cites rubric anchors ("... -> anchor 3") for its own reasoning; trainees don't need them
+    function stripAnchor(text) {
+      return text.replace(/\s*(->|→)\s*anchor\s*\d\.?/gi, "").trim();
+    }
+
     function verdictFor(score) {
       if (score >= 4.5) return ["Ready", "good"];
       if (score >= 3.5) return ["Nearly there", "good"];
@@ -943,8 +949,8 @@
           let reason = rationale[key] || "";
           // The scorer appends "[Capped 5->1: reason]" when a red flag lowered the score
           const caps = [...reason.matchAll(/\s*\[Capped (\d)->(\d): ([^\]]+)\]/g)];
-          // and cites rubric anchors ("-> anchor 3"); neither is meant for the trainee
-          reason = reason.replace(/\s*\[Capped [^\]]+\]/g, "").replace(/\s*(->|→)\s*anchor\s*\d\.?/gi, ".").replace(/\.\.$/, ".");
+          reason = reason.replace(/\s*\[Capped [^\]]+\]/g, "");
+          const ev = stripAnchor((data.evidence || {})[key] || "");
 
           const card = el("div", "crit");
           const top = el("div", "crit-top");
@@ -954,7 +960,8 @@
           dots.title = `${score} / 5`;
           top.appendChild(dots);
           card.appendChild(top);
-          card.appendChild(el("p", "", reason));
+          card.appendChild(el("p", "", stripAnchor(reason)));
+          if (ev && ev !== stripAnchor(reason)) card.appendChild(el("p", "evidence", ev));
           for (const c of caps) {
             card.appendChild(el("div", "capped", `Lowered from ${c[1]} to ${c[2]}: ${c[3]}`));
           }
@@ -962,6 +969,7 @@
         }
 
         $("modalFeedback").textContent = data.summary_feedback || "No coaching notes for this call.";
+        setState("idle", "Call ended");
         scorecardModal.style.display = "flex";
       } catch (err) {
         showError("Couldn't show the scorecard: " + err.message);
