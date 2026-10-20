@@ -186,7 +186,22 @@
     .lat { display: none; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); margin-top: 0.15rem; }
     body.show-latency .lat { display: block; }
     .notice { text-align: center; font-size: 0.8rem; color: var(--ink-3); padding: 0.25rem 0; }
-    .empty { margin: auto; text-align: center; color: var(--ink-3); font-size: 0.88rem; max-width: 22rem; }
+
+    /* First-time guide and ready-made scripts */
+    .guide { margin: auto 0; display: flex; flex-direction: column; gap: 0.8rem; font-size: 0.88rem; color: var(--ink-2); }
+    .guide h3 { font-size: 1rem; color: var(--ink); }
+    .guide .steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .guide .steps b { color: var(--ink); }
+    .scripts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 760px) { .scripts { grid-template-columns: 1fr; } }
+    .script { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.75rem; background: var(--surface-2); }
+    .script h4 { font-size: 0.82rem; margin-bottom: 0.35rem; }
+    .script.good h4 { color: var(--accent); }
+    .script.bad h4 { color: var(--bad); }
+    .script h4 span { font-weight: 400; color: var(--ink-3); }
+    .script ol { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; color: var(--ink); }
+    #scriptCard .scripts { grid-template-columns: 1fr; margin-top: 0.5rem; }
+    .report .how { font-size: 0.78rem; color: var(--ink-3); margin-top: 0.15rem; max-width: 26rem; }
 
     .banner a { color: inherit; font-weight: 600; }
     .banner {
@@ -301,6 +316,11 @@
         <button id="reset" class="btn">Restart call</button>
       </div>
 
+      <details id="scriptCard" class="sheet">
+        <summary>Not sure what to say? Use a script</summary>
+        <div id="scriptList"></div>
+      </details>
+
       <details id="productCard" class="sheet" open hidden>
         <summary id="productTitle">Product sheet</summary>
         <dl id="productTerms"></dl>
@@ -313,9 +333,7 @@
         <h3>Transcript</h3>
         <span id="langLabel"></span>
       </header>
-      <div id="log">
-        <p class="empty">The conversation will appear here. You are the loan officer; Ravi is the customer.</p>
-      </div>
+      <div id="log"></div>
     </section>
   </main>
 
@@ -325,6 +343,8 @@
         <div>
           <h2>Call feedback</h2>
           <p id="modalCallId"></p>
+          <p class="how">Scored against a 4-part call-quality checklist, the way a sales manager
+            would. Red flags and wrong product terms lower the score automatically.</p>
         </div>
         <div class="overall">
           <b id="modalOverallScore"></b><small> / 5</small><br>
@@ -505,6 +525,59 @@
       }
     });
 
+    // --- First-time guide: a visitor shouldn't have to guess what to say ---
+    // The numbers match product.json, so the good script passes the fact check. The bad script
+    // trips every safeguard: pressure, a false "no fees" claim, a wrong rate and an OTP request.
+    const SCRIPTS = [
+      { kind: "good", title: "Good agent", hint: "should score high", lines: [
+        "Good morning Ravi, I'm calling from DojoBank about your business loan enquiry.",
+        "I understand the worry, Ravi. The interest rate is 12 percent a year, fixed, and the processing fee is 1 percent.",
+        "If an EMI is late, you get a 5-day grace period, and after that the late fee is 500 rupees.",
+        "You'll need your Aadhaar, PAN and 6 months of bank statements. If you're comfortable, I'll send the upload link on WhatsApp now.",
+      ]},
+      { kind: "bad", title: "Bad agent", hint: "watch the scorer catch it", lines: [
+        "Hi, do you want the loan or not?",
+        "The interest is just 10 percent and there are no fees at all, ever.",
+        "Just tell me the OTP you received and I'll approve it right now.",
+      ]},
+    ];
+
+    function scriptsEl() {
+      const wrap = el("div", "scripts");
+      for (const s of SCRIPTS) {
+        const box = el("div", `script ${s.kind}`);
+        const h = el("h4", "", `${s.title} `);
+        h.appendChild(el("span", "", `· ${s.hint}`));
+        box.appendChild(h);
+        const ol = el("ol");
+        for (const line of s.lines) ol.appendChild(el("li", "", line));
+        box.appendChild(ol);
+        wrap.appendChild(box);
+      }
+      return wrap;
+    }
+
+    function guideEl() {
+      const g = el("div", "guide");
+      g.appendChild(el("h3", "", "How it works"));
+      const steps = el("ol", "steps");
+      for (const [bold, rest] of [
+        ["You're a bank loan officer.", " Ravi is a customer taking his first business loan, and he's nervous about hidden charges."],
+        ["Click Start call and talk to him out loud,", " like a phone call. He answers in his own voice, and you can interrupt him."],
+        ["Click End call & get feedback.", " You're scored the way a sales manager would, and anything untrue you said is caught."],
+      ]) {
+        const li = el("li");
+        li.appendChild(el("b", "", bold));
+        li.appendChild(document.createTextNode(rest));
+        steps.appendChild(li);
+      }
+      g.appendChild(steps);
+      g.appendChild(el("p", "", "Not sure what to say? Read one of these out loud, a line at a time, and let Ravi answer each one:"));
+      g.appendChild(scriptsEl());
+      g.appendChild(el("p", "hint", "Headphones help. The scripts are in English; pick Hindi or Tamil under Language to try those too."));
+      return g;
+    }
+
     // --- Transcript ---
     function clearLog(noticeText) {
       log.innerHTML = "";
@@ -513,6 +586,7 @@
       callStart = null;
       $("timer").textContent = "00:00";
       if (noticeText) addNotice(noticeText);
+      log.appendChild(guideEl());
     }
 
     function addNotice(text) {
@@ -523,8 +597,11 @@
       log.scrollTop = log.scrollHeight;
     }
 
+    log.appendChild(guideEl());
+    $("scriptList").appendChild(scriptsEl());
+
     function addLine(role, text) {
-      log.querySelector(".empty")?.remove();
+      log.querySelector(".guide")?.remove();
       const line = document.createElement("div");
       line.className = `line ${role}`;
       const t = document.createElement("div");

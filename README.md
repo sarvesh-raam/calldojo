@@ -1,23 +1,69 @@
-# CallDojo (CallSim)
+# CallDojo
 
-A voice simulator for training loan officers. The trainee talks into their microphone to
-**Ravi**, an AI borrower: 28 years old, taking his first loan and worried about hidden charges.
-Ravi answers out loud, can be interrupted mid-sentence, and speaks English, Hinglish or
-Tanglish. At the end of the call an LLM grades the trainee on a 4-criterion banking QA
-rubric and gives coaching feedback.
+**A flight simulator for loan phone calls.** New loan officers practise on an AI customer
+before they talk to real ones, and get feedback the way a good sales manager would give it.
 
-**🎧 [Try it live](https://calldojo.onrender.com)** (Chrome or Edge, allow the microphone, headphones help) ·
-**▶ [Watch the 2-minute demo](https://drive.google.com/file/d/1-hEmO5fhhHWwHhXwAcqHx-mJpJoq1-3h/view?usp=sharing)**: a call, an interruption, Hinglish, and the scorer catching a lying agent.
+**🎧 [Try it live](https://calldojo.onrender.com)** (Chrome or Edge, allow the microphone) ·
+**▶ [Watch the 2-minute demo](https://drive.google.com/file/d/1-hEmO5fhhHWwHhXwAcqHx-mJpJoq1-3h/view?usp=sharing)**
 
 | A practice call | The feedback after a bad call |
 |---|---|
-| ![A call in progress: Ravi's card on the left, the live transcript with latency on the right](docs/call.png) | ![Scorecard flagging a false "no fees" claim and an OTP request, with every criterion at 1/5](docs/scorecard.png) |
+| ![A call in progress: Ravi's card on the left, the live transcript on the right](docs/call.png) | ![Feedback flagging a false "no fees" claim and an OTP request, with every part scored 1 out of 5](docs/scorecard.png) |
 
-**Held-out benchmark:** the scorer agrees with labelled calls within 1 point **100%** of the
-time, catches every false claim, pressure close and OTP request in the test set, and catches
-**every misquoted product term** (7/7) against the product sheet, with no false alarms.
+## The problem
+
+Banks hire people to call customers about loans. Today they learn on **real customers**, and
+their mistakes cost money and trust: hiding a fee, quoting the wrong interest rate, panicking
+when a customer pushes back, or forgetting to say which documents are needed. How good they
+get depends on how much time their manager has to coach them, and managers never have enough.
+
+## What CallDojo does
+
+1. **You talk to Ravi, an AI customer, out loud,** like a real phone call. He's 28, taking his
+   first business loan, and nervous about hidden charges. He answers in his own voice within
+   about 1.5 seconds, and you can interrupt him mid-sentence, as you would a real person.
+2. **He speaks the way customers really do:** English, Hinglish or Tanglish.
+3. **When you hang up, you get a scorecard** on four things a manager checks: how you opened
+   the call, how you handled his worries, whether you were honest about the charges, and how
+   you closed. It quotes the exact lines you said and tells you what to do better.
+4. **It catches what matters most:** false promises ("no fees, ever"), pressure ("decide right
+   now"), asking for an OTP, and **quoting the wrong interest rate or fee** compared with the
+   actual product.
+
+## Try it in 60 seconds
+
+Open the [live demo](https://calldojo.onrender.com), click **Start call**, and read these lines
+out loud one at a time, letting Ravi answer each one. (The page shows them too.)
+
+- 🟢 **A good agent** should score high:
+  *"Good morning Ravi, I'm calling from DojoBank about your business loan enquiry."* →
+  *"The interest rate is 12 percent a year, fixed, and the processing fee is 1 percent."* →
+  *"If an EMI is late, you get a 5-day grace period, then the late fee is 500 rupees."* →
+  *"You'll need your Aadhaar, PAN and 6 months of bank statements. I'll send the upload link on WhatsApp."*
+- 🔴 **A bad agent** gets caught:
+  *"Hi, do you want the loan or not?"* →
+  *"The interest is just 10 percent and there are no fees at all, ever."* →
+  *"Just tell me the OTP you received and I'll approve it right now."*
+
+Then click **End call & get feedback**.
+
+## Does it work? (Results in plain words)
+
+- **Ravi answers fast:** his voice starts about **1.5 seconds** after you stop talking (it
+  started at 3.4 seconds before the work on speed).
+- **The scoring matches the checklist:** on 20 test calls it never disagreed with the expected
+  score by more than one point (**100%**), and it caught **every** false promise, pressure tactic
+  and OTP request.
+- **It knows the product:** on 11 test calls in English, Hindi and Tamil, it caught **all 7**
+  wrong rates and fees, and never flagged a correct one.
+- **The honest caveat:** the test calls and their expected scores were written by the developer
+  following the checklist, not by real bank QA reviewers. That is the next step.
 
 ---
+
+# For engineers
+
+Everything below is the technical detail: how it's built, how it's measured, and how to run it.
 
 ## Quick start
 
