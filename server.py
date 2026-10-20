@@ -178,7 +178,12 @@ async def websocket_endpoint(ws: WebSocket):
         try:
             text = await asyncio.to_thread(stt, audio_bytes, lang)
         except Exception as e:
-            await ws.send_json({"type": "error", "message": f"STT error: {e}"})
+            # Log what arrived so device-specific recording bugs can be diagnosed from the logs
+            print(f"[STT] Failed on {len(audio_bytes)} bytes, sent as {audio_filename(audio_bytes)}, "
+                  f"first bytes {audio_bytes[:12]!r}: {e}")
+            message = ("Couldn't read that recording. Hold the button and try again."
+                       if "invalid_media_file" in str(e) else f"Speech-to-text error: {e}")
+            await ws.send_json({"type": "error", "message": message})
             return
 
         t1 = time.perf_counter()

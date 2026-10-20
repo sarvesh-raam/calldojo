@@ -988,7 +988,11 @@
     }
 
     async function ensureMic() {
-      if (!mediaStream) {
+      // On iPhone, playing Ravi's audio can interrupt the mic: the track ends or goes muted and
+      // the next recording comes out empty. Reconnect whenever the old track isn't live.
+      const track = mediaStream && mediaStream.getAudioTracks()[0];
+      if (!track || track.readyState === "ended" || track.muted) {
+        if (mediaStream) mediaStream.getTracks().forEach((t) => t.stop());
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
@@ -1023,7 +1027,9 @@
         rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
         rec.onstop = handleManualSend;
-        rec.start(100);
+        // No timeslice: one complete file per turn. Slicing gave iPhone fragmented MP4s whose
+        // header could go missing ("invalid media file"), and we never stream the pieces anyway.
+        rec.start();
         isRecording = true;
         recordStartTime = Date.now();
         talkBtn.classList.add("rec");
@@ -1054,11 +1060,20 @@
         resetButtonState();
         return;
       }
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      // An (almost) empty file means the mic delivered nothing; sending it only produces an
+      // "invalid media file" error from speech-to-text
+      if (blob.size < 1500) {
+        showError("Didn't catch that. Hold the button and try again.");
+        mediaStream = null;  // reconnect the mic next time
+        resetButtonState();
+        return;
+      }
       talkBtn.classList.remove("rec");
       talkBtn.textContent = "Sending…";
       setState("thinking", "Sending…");
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
+        ws.send(blob);
       }
     }
 
