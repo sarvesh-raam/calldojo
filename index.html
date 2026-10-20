@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>CallDojo</title>
   <!-- Silero VAD runs in the browser (ONNX Runtime) to detect when the trainee starts/stops speaking -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
@@ -53,141 +53,40 @@
       font-family: var(--font);
       font-size: 15px;
       line-height: 1.5;
-      min-height: 100vh;
     }
     button, select { font: inherit; color: inherit; }
+    [hidden] { display: none !important; }
 
-    /* Top bar */
-    .topbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.5rem 1rem;
-      max-width: 880px;
+    /* One centred, app-like column on every screen size */
+    .app {
+      max-width: 560px;
       margin: 0 auto;
-      padding: 1rem 1rem 0.5rem;
+      padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
     }
-    .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
-    .brand span { color: var(--ink-3); font-weight: 400; margin-left: 0.4rem; }
-    .topbar .spacer { flex: 1; }
-    .conn { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--ink-3); }
+    .top { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 0 0.6rem; }
+    .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; background: none; border: 0; cursor: pointer; }
+    .conn { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--ink-3); }
     .conn i { width: 7px; height: 7px; border-radius: 50%; background: var(--bad); }
     .conn.ok i { background: var(--accent); }
-    .toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--ink-2); cursor: pointer; user-select: none; }
 
-    .page {
-      max-width: 880px;
-      margin: 0 auto;
-      padding: 0.5rem 1rem 2rem;
-      display: grid;
-      grid-template-columns: 300px minmax(0, 1fr);
-      grid-template-areas:
-        "caller transcript"
-        "extras transcript";
-      grid-template-rows: auto 1fr;
-      gap: 1rem;
-      align-items: start;
-    }
-    .caller { grid-area: caller; }
-    .transcript { grid-area: transcript; }
-    .extras { grid-area: extras; display: flex; flex-direction: column; gap: 0.75rem; }
+    .screen { display: none; flex-direction: column; gap: 1rem; flex: 1; padding-bottom: 1rem; }
+    .screen.active { display: flex; }
 
-    /* Phones: the conversation comes right after the controls, reference material last, and the
-       end-call buttons stay pinned to the bottom of the screen */
-    @media (max-width: 760px) {
-      .page {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "caller" "transcript" "extras";
-        grid-template-rows: none;
-      }
-      .brand span { display: none; }
-      body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
-      .caller .actions {
-        position: fixed;
-        left: 0; right: 0; bottom: 0;
-        z-index: 5;
-        flex-direction: row;
-        padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
-        background: var(--surface);
-        border-top: 1px solid var(--line);
-      }
-      .caller .actions { flex-wrap: wrap; }
-      .caller .actions .btn { flex: 1; padding: 0.75rem 0.5rem; }
-      .caller .actions .listen { flex-basis: 100%; }
-      .caller .actions #scoreBtn { flex: 2; }
-      .transcript { min-height: 50vh; max-height: 75vh; }
-    }
+    h1 { font-size: 1.65rem; line-height: 1.2; letter-spacing: -0.02em; }
+    h2 { font-size: 1.25rem; letter-spacing: -0.01em; }
+    .lead { color: var(--ink-2); font-size: 1rem; }
+    .hint { font-size: 0.8rem; color: var(--ink-3); }
+    .back { align-self: flex-start; background: none; border: 0; color: var(--ink-2); cursor: pointer; font-size: 0.88rem; padding: 0.2rem 0; }
 
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-    }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    .card { padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .card h3 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); font-weight: 650; }
 
-    /* Caller card */
-    .caller { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
-    .who { display: flex; gap: 0.8rem; align-items: center; }
-    .avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: var(--accent-soft); color: var(--accent);
-      display: grid; place-items: center; font-weight: 700; font-size: 1.1rem;
-      flex-shrink: 0;
-    }
-    .who h2 { font-size: 1rem; font-weight: 650; }
-    .who p { font-size: 0.82rem; color: var(--ink-2); }
-    .brief { font-size: 0.85rem; color: var(--ink-2); background: var(--surface-2); border-radius: 8px; padding: 0.7rem 0.8rem; }
-    .brief b { color: var(--ink); font-weight: 600; }
-
-    .sheet { font-size: 0.82rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem 0.75rem; background: var(--surface); }
-    .sheet summary { cursor: pointer; font-weight: 600; color: var(--ink); }
-    .sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.75rem; margin-top: 0.5rem; }
-    .sheet dt { color: var(--ink-3); }
-    .sheet dd { color: var(--ink); }
-    .sheet .fine { color: var(--ink-3); margin-top: 0.4rem; }
-
-    .callstate { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; }
-    .state { display: flex; align-items: center; gap: 0.5rem; color: var(--ink-2); }
-    .state i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
-    .state[data-kind="listening"] i { background: var(--accent); }
-    .state[data-kind="you"] i { background: var(--you); animation: blink 1s infinite; }
-    .state[data-kind="thinking"] i { background: var(--warn); animation: blink 0.8s infinite; }
-    .state[data-kind="ravi"] i { background: var(--accent); animation: blink 1.2s infinite; }
-    .state[data-kind="off"] i { background: var(--bad); }
-    @keyframes blink { 50% { opacity: 0.25; } }
-    .timer { font-family: var(--mono); color: var(--ink-3); font-size: 0.85rem; }
-
-    .mic {
-      width: 100%;
-      padding: 0.85rem;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: var(--surface-2);
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.15s, border-color 0.15s;
-      /* Holding the button on a phone must not select text or open a menu */
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      touch-action: none;
-    }
-    .mic:hover { border-color: var(--ink-3); }
-    .mic.live { background: var(--accent-soft); border-color: transparent; color: var(--accent); cursor: default; }
-    .mic.rec { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
-    .hint { font-size: 0.78rem; color: var(--ink-3); margin-top: -0.5rem; }
-
-    .settings { display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 0.75rem; align-items: center; font-size: 0.82rem; color: var(--ink-2); }
-    .settings select {
-      width: 100%;
-      padding: 0.35rem 0.5rem;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: var(--surface);
-    }
-
-    .actions { display: flex; flex-direction: column; gap: 0.5rem; }
     .btn {
-      padding: 0.7rem 1rem;
+      padding: 0.8rem 1rem;
       border-radius: 10px;
       border: 1px solid var(--line);
       background: var(--surface);
@@ -197,198 +96,301 @@
     .btn:hover { border-color: var(--ink-3); }
     .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
     .btn.primary:hover { opacity: 0.9; }
-    .btn:disabled { opacity: 0.55; cursor: wait; }
+    .btn.big { width: 100%; padding: 0.95rem; font-size: 1rem; }
     .btn.listen { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn:disabled { opacity: 0.55; cursor: wait; }
+    .link { background: none; border: 0; color: var(--ink-2); text-decoration: underline; cursor: pointer; font-size: 0.88rem; }
 
-    /* Transcript */
-    .transcript { min-height: 460px; max-height: calc(100vh - 7rem); display: flex; flex-direction: column; }
-    .transcript header {
-      display: flex; justify-content: space-between; align-items: baseline;
-      padding: 0.9rem 1.1rem; border-bottom: 1px solid var(--line);
-    }
-    .transcript header h3 { font-size: 0.9rem; font-weight: 650; }
-    .transcript header span { font-size: 0.78rem; color: var(--ink-3); }
-    #log { overflow-y: auto; padding: 0.75rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.9rem; flex: 1; }
-
-    .line { display: grid; grid-template-columns: 3.2rem 1fr; gap: 0.6rem; }
-    .line .t { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-3); padding-top: 0.15rem; }
-    .line .who-name { font-size: 0.78rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; }
-    .line.you .who-name { color: var(--you); }
-    .line.ravi .who-name { color: var(--accent); }
-    .line .text { white-space: pre-wrap; }
-    .line .cut { color: var(--ink-3); font-style: italic; font-size: 0.85rem; }
-    .lat { display: none; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); margin-top: 0.15rem; }
-    body.show-latency .lat { display: block; }
-    .notice { text-align: center; font-size: 0.8rem; color: var(--ink-3); padding: 0.25rem 0; }
-
-    /* First-time guide and ready-made scripts */
-    .guide { margin: auto 0; display: flex; flex-direction: column; gap: 0.8rem; font-size: 0.88rem; color: var(--ink-2); }
-    .guide h3 { font-size: 1rem; color: var(--ink); }
-    .guide .steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
-    .guide .steps b { color: var(--ink); }
-    .scripts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-    @media (max-width: 760px) { .scripts { grid-template-columns: 1fr; } }
-    .script { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.75rem; background: var(--surface-2); }
-    .script h4 { font-size: 0.82rem; margin-bottom: 0.35rem; }
-    .script.good h4 { color: var(--accent); }
-    .script.bad h4 { color: var(--bad); }
-    .script h4 span { font-weight: 400; color: var(--ink-3); }
-    .script ol { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; color: var(--ink); }
-    #scriptCard .scripts { grid-template-columns: 1fr; margin-top: 0.5rem; }
-    .report .how { font-size: 0.8rem; color: var(--ink-3); margin-top: -0.5rem; }
-
-    .banner a { color: inherit; font-weight: 600; }
-    .banner-wrap { max-width: 880px; margin: 0 auto; padding: 0 1rem; }
     .banner {
       display: none;
-      margin-top: 0.5rem;
+      margin-bottom: 0.6rem;
       background: var(--bad-soft);
       color: var(--bad);
       border-radius: 8px;
       padding: 0.6rem 0.9rem;
       font-size: 0.85rem;
     }
+    .banner a { color: inherit; font-weight: 600; }
 
-    /* Scorecard */
-    .overlay {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(20, 20, 18, 0.45);
-      z-index: 10;
-      align-items: center; justify-content: center;
-      padding: 1rem;
+    /* ① Welcome */
+    .welcome { justify-content: center; gap: 1.4rem; }
+    .how { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; }
+    .how li { display: flex; gap: 0.75rem; align-items: flex-start; }
+    .how .n {
+      flex-shrink: 0; width: 1.7rem; height: 1.7rem; border-radius: 50%;
+      background: var(--accent-soft); color: var(--accent);
+      display: grid; place-items: center; font-weight: 700; font-size: 0.85rem;
     }
-    .report {
-      background: var(--surface);
-      border-radius: 14px;
-      width: 100%; max-width: 600px; max-height: 92vh; overflow-y: auto;
-      padding: 1.5rem;
-      display: flex; flex-direction: column; gap: 1.1rem;
+    .how b { display: block; }
+    .how span { color: var(--ink-2); font-size: 0.9rem; }
+
+    /* ② Language */
+    .lang-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .lang-card {
+      text-align: left; padding: 1rem; border-radius: var(--radius);
+      border: 1px solid var(--line); background: var(--surface); cursor: pointer;
     }
+    .lang-card:hover { border-color: var(--accent); }
+    .lang-card .native { display: block; font-size: 1.3rem; font-weight: 650; }
+    .lang-card .label { display: block; font-size: 0.8rem; color: var(--ink-3); }
+
+    /* ③ Briefing */
+    .who { display: flex; gap: 0.8rem; align-items: center; }
+    .avatar {
+      width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent-soft); color: var(--accent);
+      display: grid; place-items: center; font-weight: 700; font-size: 1.05rem;
+    }
+    .who h2 { font-size: 1.05rem; }
+    .who p { font-size: 0.85rem; color: var(--ink-2); }
+    .goals { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.92rem; }
+    .goals li { display: flex; gap: 0.6rem; }
+    .goals li::before { content: "✓"; color: var(--accent); font-weight: 700; }
+    .terms { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; font-size: 0.88rem; }
+    .terms dt { color: var(--ink-3); }
+    .terms dd { color: var(--ink); }
+    .fine { font-size: 0.8rem; color: var(--ink-3); }
+    .choices { display: flex; flex-direction: column; gap: 0.5rem; }
+    .choice {
+      display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.75rem 0.85rem;
+      border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--surface);
+    }
+    .choice.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .choice input { margin-top: 0.25rem; accent-color: var(--accent); }
+    .choice b { display: block; font-size: 0.92rem; }
+    .choice span { font-size: 0.82rem; color: var(--ink-2); }
+
+    /* ④ The call */
+    .call { height: calc(100dvh - 3.6rem - env(safe-area-inset-bottom)); min-height: 30rem; gap: 0.75rem; padding-bottom: 0; }
+    .call-head { display: flex; align-items: center; gap: 0.7rem; }
+    .call-head .avatar { width: 40px; height: 40px; font-size: 0.95rem; }
+    .call-head .meta { flex: 1; min-width: 0; }
+    .call-head b { display: block; }
+    .state { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--ink-2); }
+    .state i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+    .state[data-kind="listening"] i { background: var(--accent); }
+    .state[data-kind="you"] i { background: var(--you); animation: blink 1s infinite; }
+    .state[data-kind="thinking"] i { background: var(--warn); animation: blink 0.8s infinite; }
+    .state[data-kind="ravi"] i { background: var(--accent); animation: blink 1.2s infinite; }
+    .state[data-kind="off"] i { background: var(--bad); }
+    @keyframes blink { 50% { opacity: 0.25; } }
+    .timer { font-family: var(--mono); color: var(--ink-3); font-size: 0.85rem; }
+
+    #log {
+      flex: 1; min-height: 8rem; overflow-y: auto; padding: 0.85rem;
+      display: flex; flex-direction: column; gap: 0.8rem;
+    }
+    .line .who-name { font-size: 0.72rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; }
+    .line.you .who-name { color: var(--you); }
+    .line.ravi .who-name { color: var(--accent); }
+    .line .text { white-space: pre-wrap; }
+    .line .cut { color: var(--ink-3); font-style: italic; font-size: 0.85rem; }
+    .lat { display: none; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); }
+    body.show-latency .lat { display: block; }
+    .notice { text-align: center; font-size: 0.8rem; color: var(--ink-3); margin: auto 0; }
+
+    .say { border-left: 3px solid var(--accent); padding: 0.6rem 0.85rem; background: var(--accent-soft); border-radius: 0 10px 10px 0; }
+    .say small { display: block; font-size: 0.72rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+    .say p { font-size: 0.98rem; }
+
+    .mic {
+      width: 100%; padding: 1.05rem; border-radius: 14px; font-size: 1.02rem; font-weight: 650;
+      border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      /* Holding the button on a phone must not select text or open a menu */
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none;
+    }
+    .mic.live { background: var(--accent-soft); border-color: transparent; color: var(--accent); cursor: default; }
+    .mic.rec { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+    #status { text-align: center; margin-top: -0.35rem; }
+    .call-actions { display: flex; gap: 0.5rem; }
+    .call-actions .primary { flex: 1; }
+    .more { font-size: 0.85rem; }
+    .more summary { cursor: pointer; color: var(--ink-2); }
+    .more .card { margin-top: 0.5rem; }
+    .setting { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 0.88rem; }
+    .setting select { padding: 0.3rem 0.5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+
+    /* ⑤ Feedback */
     .report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
-    .report-head h2 { font-size: 1.15rem; }
-    .report-head p { font-size: 0.8rem; color: var(--ink-3); }
     .overall { text-align: right; }
-    .overall b { font-size: 1.8rem; line-height: 1; }
+    .overall b { font-size: 2rem; line-height: 1; }
     .overall small { color: var(--ink-3); }
     .verdict { display: inline-block; white-space: nowrap; margin-top: 0.3rem; font-size: 0.75rem; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; }
     .verdict.good { background: var(--accent-soft); color: var(--accent); }
     .verdict.mid { background: var(--warn-soft); color: var(--warn); }
     .verdict.bad { background: var(--bad-soft); color: var(--bad); }
-
+    .flags { background: var(--bad-soft); border-radius: 10px; padding: 0.75rem 0.9rem; font-size: 0.88rem; }
+    .flags h4 { color: var(--bad); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+    .flags li { margin-left: 1rem; color: var(--ink); }
+    .flags q, .facts q { color: var(--ink-2); }
     .crit { border-top: 1px solid var(--line); padding-top: 0.8rem; }
     .crit-top { display: flex; justify-content: space-between; align-items: center; }
-    .crit-top h4 { font-size: 0.9rem; font-weight: 650; }
+    .crit-top h4 { font-size: 0.92rem; font-weight: 650; }
     .dots { display: flex; gap: 4px; }
     .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
     .dots.s1 i:nth-child(-n+1), .dots.s2 i:nth-child(-n+2) { background: var(--bad); }
     .dots.s3 i:nth-child(-n+3) { background: var(--warn); }
     .dots.s4 i:nth-child(-n+4), .dots.s5 i:nth-child(-n+5) { background: var(--accent); }
-    .crit p { font-size: 0.85rem; color: var(--ink-2); margin-top: 0.3rem; }
+    .crit p { font-size: 0.88rem; color: var(--ink-2); margin-top: 0.3rem; }
     .crit .evidence { font-size: 0.8rem; color: var(--ink-3); font-style: italic; margin-top: 0.2rem; }
     .crit .capped { font-size: 0.78rem; color: var(--bad); margin-top: 0.25rem; }
-
-    .flags { background: var(--bad-soft); border-radius: 8px; padding: 0.75rem 0.9rem; font-size: 0.85rem; }
-    .flags h4 { color: var(--bad); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
-    .flags li { margin-left: 1rem; color: var(--ink); }
-    .flags q { color: var(--ink-2); }
-    .facts h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 0.35rem; }
-    .facts li { list-style: none; font-size: 0.85rem; margin-bottom: 0.25rem; }
+    .facts h4, .coach h4 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 0.35rem; }
+    .facts li { list-style: none; font-size: 0.88rem; margin-bottom: 0.25rem; }
     .facts .ok b { color: var(--accent); }
     .facts .bad b { color: var(--bad); }
-    .facts q { color: var(--ink-3); font-size: 0.8rem; }
-    .coach { background: var(--surface-2); border-radius: 8px; padding: 0.8rem 0.9rem; }
-    .coach h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 0.3rem; }
+    .coach { background: var(--surface-2); border-radius: 10px; padding: 0.8rem 0.9rem; }
+    .end-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+    /* The briefing is longer than a phone screen; keep its one action in reach */
+    #beginCall { position: sticky; bottom: calc(0.75rem + env(safe-area-inset-bottom)); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+    #videoLink { color: var(--accent); font-weight: 600; }
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="brand">CallDojo<span>loan call practice</span></div>
-    <div class="spacer"></div>
-    <label class="toggle"><input type="checkbox" id="latencyToggle"> Show latency</label>
-    <div id="conn" class="conn"><i></i><span id="connText">Connecting…</span></div>
-  </div>
+  <div class="app">
+    <header class="top">
+      <button class="brand" id="home" title="Back to the start">CallDojo</button>
+      <div id="conn" class="conn"><i></i><span id="connText">Connecting…</span></div>
+    </header>
+    <div id="errorBanner" class="banner"></div>
 
-  <div class="banner-wrap"><div id="errorBanner" class="banner"></div></div>
+    <!-- ① Welcome -->
+    <section class="screen welcome active" data-screen="welcome">
+      <div>
+        <h1>Practise loan calls with an AI customer</h1>
+        <p class="lead" style="margin-top:0.5rem">Talk to Ravi, a nervous first-time borrower, out loud.
+          When you hang up, you're scored the way a sales manager would score you.</p>
+      </div>
+      <ol class="how">
+        <li><span class="n">1</span><div><b>Pick a language</b><span>English, Hindi, Tamil and more, the way customers really talk.</span></div></li>
+        <li><span class="n">2</span><div><b>Talk to Ravi</b><span>He answers in his own voice. Follow a script or speak freely.</span></div></li>
+        <li><span class="n">3</span><div><b>Get your scorecard</b><span>What you did well, what to fix, and anything untrue you said.</span></div></li>
+      </ol>
+      <button class="btn primary big" id="startBtn">Start practising</button>
+      <p class="hint" style="text-align:center">
+        <a id="videoLink" href="#" target="_blank" rel="noopener" hidden>Watch the 2-minute demo</a>
+      </p>
+      <p id="demoNote" class="hint" style="text-align:center" hidden></p>
+    </section>
 
-  <main class="page">
-    <aside class="panel caller">
-      <div class="who">
-        <div class="avatar">RK</div>
-        <div>
-          <h2>Ravi Kumar</h2>
-          <p>28 · runs a small shop · first business loan</p>
+    <!-- ② Language -->
+    <section class="screen" data-screen="language">
+      <button class="back" data-go="welcome">← Back</button>
+      <h2>Which language will you speak in?</h2>
+      <p class="lead">Ravi will reply in the same language.</p>
+      <div class="lang-grid" id="langGrid"></div>
+    </section>
+
+    <!-- ③ Briefing -->
+    <section class="screen" data-screen="brief">
+      <button class="back" data-go="language">← Change language</button>
+      <h2>Your call</h2>
+
+      <div class="panel card">
+        <div class="who">
+          <div class="avatar">RK</div>
+          <div>
+            <h2>Ravi Kumar</h2>
+            <p>28 · runs a small shop · wants his first business loan</p>
+          </div>
         </div>
+        <p class="lead" style="font-size:0.92rem">He's nervous about <b>hidden charges</b> and about <b>missing an EMI</b>.</p>
       </div>
 
-      <p class="brief">
-        Ravi is nervous about <b>hidden charges</b> and <b>missing an EMI</b>.
-        Introduce yourself, answer him honestly using the product sheet at the bottom, and agree on next steps.
-      </p>
-      <p id="demoNote" class="hint" hidden></p>
+      <div class="panel card">
+        <h3>Your goals</h3>
+        <ul class="goals">
+          <li>Introduce yourself and say which bank you're calling from</li>
+          <li>Answer his worries with the exact terms from the product sheet</li>
+          <li>Close with the documents he needs and a clear next step</li>
+        </ul>
+      </div>
 
-      <div class="callstate">
-        <div id="state" class="state" data-kind="idle"><i></i><span id="stateText">Not started</span></div>
+      <div class="panel card">
+        <h3 id="productTitle">The product</h3>
+        <dl class="terms" id="productTerms"></dl>
+        <p class="fine" id="productDocs"></p>
+      </div>
+
+      <div class="panel card">
+        <h3>How do you want to practise?</h3>
+        <div class="choices" id="choices">
+          <label class="choice selected" data-script="good">
+            <input type="radio" name="mode" value="good" checked>
+            <div><b>Follow a script: good agent</b><span>We show you each line to say. Should score high.</span></div>
+          </label>
+          <label class="choice" data-script="bad">
+            <input type="radio" name="mode" value="bad">
+            <div><b>Follow a script: bad agent</b><span>Say the wrong things and watch the scorer catch them.</span></div>
+          </label>
+          <label class="choice" data-script="free">
+            <input type="radio" name="mode" value="free">
+            <div><b>Speak freely</b><span>Handle Ravi your own way.</span></div>
+          </label>
+        </div>
+        <p class="fine" id="scriptNote" hidden>The scripts are in English. In this language, speak freely.</p>
+      </div>
+
+      <button class="btn primary big" id="beginCall">Start the call</button>
+    </section>
+
+    <!-- ④ The call -->
+    <section class="screen call" data-screen="call">
+      <div class="call-head">
+        <div class="avatar">RK</div>
+        <div class="meta">
+          <b>Ravi Kumar</b>
+          <div id="state" class="state" data-kind="idle"><i></i><span id="stateText">Ready</span></div>
+        </div>
         <div id="timer" class="timer">00:00</div>
       </div>
 
+      <div id="log" class="panel"></div>
+
+      <div id="say" class="say" hidden>
+        <small id="sayLabel">Say this</small>
+        <p id="sayText"></p>
+      </div>
+
+      <button id="playBlocked" class="btn listen big" hidden>Tap to hear Ravi</button>
       <button id="talk" class="mic">Start call</button>
-      <p id="status" class="hint">Click to allow the microphone, then just talk.</p>
+      <p id="status" class="hint"></p>
 
-      <div class="settings">
-        <label for="langSelect">Language</label>
-        <select id="langSelect" title="Switching language starts a new call"></select>
-        <label for="modeSelect">Mic</label>
-        <select id="modeSelect">
-          <option value="vad">Hands-free (best with earphones)</option>
-          <option value="click">Click to talk</option>
-          <option value="hold">Hold to talk</option>
-        </select>
-      </div>
-
-      <div class="actions">
-        <button id="playBlocked" class="btn listen" hidden>Tap to hear Ravi</button>
+      <div class="call-actions">
         <button id="scoreBtn" class="btn primary">End call &amp; get feedback</button>
-        <button id="reset" class="btn">Restart call</button>
+        <button id="reset" class="btn">Restart</button>
       </div>
-    </aside>
 
-    <section id="transcriptPanel" class="panel transcript">
-      <header>
-        <h3>Transcript</h3>
-        <span id="langLabel"></span>
-      </header>
-      <div id="log"></div>
+      <details class="more">
+        <summary>Product sheet &amp; settings</summary>
+        <div class="panel card">
+          <dl class="terms" id="productTermsCall"></dl>
+          <div class="setting">
+            <label for="modeSelect">Microphone</label>
+            <select id="modeSelect">
+              <option value="vad">Hands-free (best with earphones)</option>
+              <option value="click">Click to talk</option>
+              <option value="hold">Hold to talk</option>
+            </select>
+          </div>
+          <label class="setting"><span>Show response times</span><input type="checkbox" id="latencyToggle"></label>
+        </div>
+      </details>
     </section>
 
-    <!-- Reference material: under the controls on desktop, after the conversation on phones -->
-    <aside class="extras">
-      <details id="scriptCard" class="sheet">
-        <summary>Not sure what to say? Use a script</summary>
-        <div id="scriptList"></div>
-      </details>
-
-      <details id="productCard" class="sheet" open hidden>
-        <summary id="productTitle">Product sheet</summary>
-        <dl id="productTerms"></dl>
-        <p id="productDocs" class="fine"></p>
-      </details>
-    </aside>
-  </main>
-
-  <div id="scorecardModal" class="overlay">
-    <div class="report">
+    <!-- ⑤ Feedback -->
+    <section class="screen" data-screen="feedback">
       <div class="report-head">
         <div>
-          <h2>Call feedback</h2>
-          <p id="modalCallId"></p>
+          <h2>Your feedback</h2>
+          <p class="hint" id="modalCallId"></p>
         </div>
         <div class="overall">
           <b id="modalOverallScore"></b><small> / 5</small><br>
           <span id="modalVerdict" class="verdict"></span>
         </div>
       </div>
-      <p class="how">Scored against a 4-part call-quality checklist, the way a sales manager
+      <p class="hint">Scored against a 4-part call-quality checklist, the way a sales manager
         would. Red flags and wrong product terms lower the score automatically.</p>
       <div id="modalFlags"></div>
       <div id="scoreCardsContainer"></div>
@@ -397,8 +399,11 @@
         <h4>Coaching</h4>
         <p id="modalFeedback"></p>
       </div>
-      <button id="closeModalBtn" class="btn primary">Start a new call</button>
-    </div>
+      <div class="end-actions">
+        <button id="againBtn" class="btn primary big">Practise again</button>
+        <button id="otherLangBtn" class="btn big">Try another language</button>
+      </div>
+    </section>
   </div>
 
   <script>
@@ -551,16 +556,35 @@
     const resetBtn = $("reset");
     const errorBanner = $("errorBanner");
     const modeSelect = $("modeSelect");
-    const langSelect = $("langSelect");
-    const langLabel = $("langLabel");
     const scoreBtn = $("scoreBtn");
+
+    function el(tag, className, text) {
+      const e = document.createElement(tag);
+      if (className) e.className = className;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    // --- Screens: one thing at a time ---
+    let screen = "welcome";
+    function show(name) {
+      screen = name;
+      for (const s of document.querySelectorAll(".screen")) {
+        s.classList.toggle("active", s.dataset.screen === name);
+      }
+      window.scrollTo(0, 0);
+    }
+    for (const b of document.querySelectorAll("[data-go]")) {
+      b.addEventListener("click", () => show(b.dataset.go));
+    }
+    $("home").addEventListener("click", () => { leaveCall(); show("welcome"); });
+    $("startBtn").addEventListener("click", () => show("language"));
 
     // On a phone speaker the mic hears Ravi and treats his voice as the trainee's, so phones
     // default to hold-to-talk, like a voice note. With earphones, hands-free works too.
     if (isPhone()) {
       currentMode = "hold";
       modeSelect.value = "hold";
-      resetButtonState();
     }
 
     let currentRaviText = null;   // text node of the line Ravi is currently speaking
@@ -570,8 +594,7 @@
     let callStart = null;
     setInterval(() => {
       if (!callStart) return;
-      const s = Math.floor((Date.now() - callStart) / 1000);
-      $("timer").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+      $("timer").textContent = elapsedLabel();
     }, 500);
     function elapsedLabel() {
       if (!callStart) return "00:00";
@@ -617,59 +640,46 @@
       audioQueue.resume();
     });
 
-    // --- First-time guide: a visitor shouldn't have to guess what to say ---
-    // The numbers match product.json, so the good script passes the fact check. The bad script
-    // trips every safeguard: pressure, a false "no fees" claim, a wrong rate and an OTP request.
-    const SCRIPTS = [
-      { kind: "good", title: "Good agent", hint: "should score high", lines: [
+    // --- Scripts: the numbers match product.json, so the good script passes the fact check.
+    // The bad script trips every safeguard: pressure, a false "no fees" claim, a wrong rate
+    // and an OTP request. ---
+    const SCRIPTS = {
+      good: [
         "Good morning Ravi, I'm calling from DojoBank about your business loan enquiry.",
         "I understand the worry, Ravi. The interest rate is 12 percent a year, fixed, and the processing fee is 1 percent.",
         "If an EMI is late, you get a 5-day grace period, and after that the late fee is 500 rupees.",
         "You'll need your Aadhaar, PAN and 6 months of bank statements. If you're comfortable, I'll send the upload link on WhatsApp now.",
-      ]},
-      { kind: "bad", title: "Bad agent", hint: "watch the scorer catch it", lines: [
+      ],
+      bad: [
         "Hi, do you want the loan or not?",
         "The interest is just 10 percent and there are no fees at all, ever.",
         "Just tell me the OTP you received and I'll approve it right now.",
-      ]},
-    ];
+      ],
+    };
+    let scriptKind = "good";
+    let scriptIdx = 0;
 
-    function scriptsEl() {
-      const wrap = el("div", "scripts");
-      for (const s of SCRIPTS) {
-        const box = el("div", `script ${s.kind}`);
-        const h = el("h4", "", `${s.title} `);
-        h.appendChild(el("span", "", `· ${s.hint}`));
-        box.appendChild(h);
-        const ol = el("ol");
-        for (const line of s.lines) ol.appendChild(el("li", "", line));
-        box.appendChild(ol);
-        wrap.appendChild(box);
-      }
-      return wrap;
+    for (const c of document.querySelectorAll(".choice")) {
+      c.addEventListener("click", () => {
+        scriptKind = c.dataset.script;
+        for (const o of document.querySelectorAll(".choice")) o.classList.toggle("selected", o === c);
+        c.querySelector("input").checked = true;
+      });
     }
 
-    function guideEl() {
-      const g = el("div", "guide");
-      g.appendChild(el("h3", "", "How it works"));
-      const steps = el("ol", "steps");
-      for (const [bold, rest] of [
-        ["You're a bank loan officer.", " Ravi is a customer taking his first business loan, and he's nervous about hidden charges."],
-        currentMode === "hold"
-          ? ["Hold the Talk button while you speak, and let go when you're done,", " like a voice note. Ravi answers in his own voice."]
-          : ["Click Start call and talk to him out loud,", " like a phone call. He answers in his own voice, and you can interrupt him."],
-        ["Click End call & get feedback.", " You're scored the way a sales manager would, and anything untrue you said is caught."],
-      ]) {
-        const li = el("li");
-        li.appendChild(el("b", "", bold));
-        li.appendChild(document.createTextNode(rest));
-        steps.appendChild(li);
+    // The next line to say, shown above the talk button; advances after each of the trainee's turns
+    function renderSay() {
+      const lines = SCRIPTS[scriptKind];
+      const box = $("say");
+      if (!lines) { box.hidden = true; return; }
+      box.hidden = false;
+      if (scriptIdx < lines.length) {
+        $("sayLabel").textContent = `Say this · line ${scriptIdx + 1} of ${lines.length}`;
+        $("sayText").textContent = lines[scriptIdx];
+      } else {
+        $("sayLabel").textContent = "Script done";
+        $("sayText").textContent = "Tap “End call & get feedback” to see your score.";
       }
-      g.appendChild(steps);
-      g.appendChild(el("p", "", "Not sure what to say? Read one of these out loud, a line at a time, and let Ravi answer each one:"));
-      g.appendChild(scriptsEl());
-      g.appendChild(el("p", "hint", "Headphones help. The scripts are in English; pick Hindi or Tamil under Language to try those too."));
-      return g;
     }
 
     // --- Transcript ---
@@ -679,39 +689,15 @@
       currentRaviLat = null;
       callStart = null;
       $("timer").textContent = "00:00";
-      if (noticeText) addNotice(noticeText);
-      log.appendChild(guideEl());
+      if (noticeText) log.appendChild(el("p", "notice", noticeText));
     }
-
-    function addNotice(text) {
-      const p = document.createElement("p");
-      p.className = "notice";
-      p.textContent = text;
-      log.appendChild(p);
-      log.scrollTop = log.scrollHeight;
-    }
-
-    log.appendChild(guideEl());
-    $("scriptList").appendChild(scriptsEl());
 
     function addLine(role, text) {
-      log.querySelector(".guide")?.remove();
-      const line = document.createElement("div");
-      line.className = `line ${role}`;
-      const t = document.createElement("div");
-      t.className = "t";
-      t.textContent = elapsedLabel();
-      const body = document.createElement("div");
-      const name = document.createElement("div");
-      name.className = "who-name";
-      name.textContent = role === "you" ? "You" : "Ravi";
-      const textEl = document.createElement("div");
-      textEl.className = "text";
-      textEl.textContent = text;
-      const lat = document.createElement("div");
-      lat.className = "lat";
-      body.append(name, textEl, lat);
-      line.append(t, body);
+      log.querySelector(".notice")?.remove();
+      const line = el("div", `line ${role}`);
+      const textEl = el("div", "text", text);
+      const lat = el("div", "lat");
+      line.append(el("div", "who-name", role === "you" ? `You · ${elapsedLabel()}` : "Ravi"), textEl, lat);
       log.appendChild(line);
       log.scrollTop = log.scrollHeight;
       return { textEl, lat };
@@ -722,11 +708,10 @@
       clearTimeout(showError.timer);
       errorBanner.textContent = message + " ";
       if (videoUrl) {
-        const a = document.createElement("a");
+        const a = el("a", "", "Watch the demo video");
         a.href = videoUrl;
         a.target = "_blank";
         a.rel = "noopener";
-        a.textContent = "Watch the demo video";
         errorBanner.appendChild(a);
       }
       errorBanner.style.display = "block";
@@ -753,21 +738,18 @@
         if (currentRaviText) {
           // Show only what Ravi actually got to say
           currentRaviText.textContent = heardText || currentRaviText.textContent;
-          const cut = document.createElement("span");
-          cut.className = "cut";
-          cut.textContent = " — cut off";
-          currentRaviText.appendChild(cut);
+          currentRaviText.appendChild(el("span", "cut", " — cut off"));
           currentRaviText = null;
         }
       }
     }
 
-    // Only the visible tab listens: a background tab would otherwise hear the trainee too
+    // Only the visible tab, on the call screen, listens: anywhere else it would hear the trainee
     document.addEventListener("visibilitychange", () => {
       if (currentMode !== "vad" || !myvad) return;
       if (document.hidden) {
         myvad.pause();
-      } else if (!scoreBtn.disabled) {
+      } else if (screen === "call" && !scoreBtn.disabled) {
         myvad.start();
       }
     });
@@ -780,30 +762,55 @@
     }
 
     function renderProduct(p) {
-      $("productTitle").textContent = `Product sheet · ${p.lender} ${p.product}`;
-      const dl = $("productTerms");
-      dl.innerHTML = "";
-      for (const t of Object.values(p.terms)) {
-        dl.appendChild(el("dt", "", t.label));
-        dl.appendChild(el("dd", "", termValue(t)));
+      $("productTitle").textContent = `The product · ${p.lender} ${p.product}`;
+      for (const id of ["productTerms", "productTermsCall"]) {
+        const dl = $(id);
+        dl.innerHTML = "";
+        for (const t of Object.values(p.terms)) {
+          dl.appendChild(el("dt", "", t.label));
+          dl.appendChild(el("dd", "", termValue(t)));
+        }
       }
       $("productDocs").textContent = `Documents: ${p.documents.join(", ")}. Loans ${p.loan_range}. ${p.note || ""}`;
-      // On a phone an open sheet fills the screen; it stays one tap away
-      $("productCard").open = !isPhone();
-      $("productCard").hidden = false;
     }
 
     // --- Language ---
+    let languages = [];
     let chosenLanguage = null;
-    langSelect.addEventListener("change", () => {
-      chosenLanguage = langSelect.value;
-      audioQueue.reset();
-      isAssistantSpeaking = false;
-      isAssistantGenerating = false;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: "set_language", language: chosenLanguage }));
+    let currentLanguage = "en";
+
+    function renderLanguages() {
+      const grid = $("langGrid");
+      grid.innerHTML = "";
+      for (const l of languages) {
+        const card = el("button", "lang-card");
+        card.appendChild(el("span", "native", l.native));
+        // Only show the English label when it adds something ("Hinglish"), not "English / English"
+        if (l.label !== l.native) card.appendChild(el("span", "label", l.label));
+        card.addEventListener("click", () => chooseLanguage(l.code));
+        grid.appendChild(card);
       }
-    });
+    }
+
+    function chooseLanguage(code) {
+      chosenLanguage = code;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "set_language", language: code }));
+      }
+      applyLanguage(code);
+      show("brief");
+    }
+
+    // The scripts are English, so other languages default to speaking freely
+    function applyLanguage(code) {
+      currentLanguage = code;
+      const english = code === "en";
+      $("scriptNote").hidden = english;
+      for (const c of document.querySelectorAll(".choice")) {
+        if (c.dataset.script !== "free") c.hidden = !english;
+      }
+      if (!english) document.querySelector('.choice[data-script="free"]').click();
+    }
 
     // --- WebSocket ---
     let hadConnection = false;
@@ -814,12 +821,14 @@
       ws.onopen = () => {
         conn.className = "conn ok";
         connText.textContent = "Connected";
-        if (hadConnection) {
+        if (hadConnection && screen === "call") {
           // The server keeps call history per connection; after a reconnect Ravi remembers nothing
           audioQueue.reset();
           isAssistantSpeaking = false;
           isAssistantGenerating = false;
-          clearLog("Connection was lost, so a new call has started. Introduce yourself again.");
+          scriptIdx = 0;
+          renderSay();
+          clearLog("The connection dropped, so a new call has started. Introduce yourself again.");
           scoreBtn.textContent = "End call & get feedback";
           scoreBtn.disabled = false;
           resetButtonState();
@@ -840,11 +849,7 @@
         const msg = JSON.parse(event.data);
 
         if (msg.type === "user_transcription") {
-          if (!callStart) {
-            callStart = Date.now();
-            // On a phone the conversation sits below the controls; bring it into view once
-            if (isPhone()) $("transcriptPanel").scrollIntoView({ behavior: "smooth", block: "start" });
-          }
+          if (!callStart) callStart = Date.now();
           const you = addLine("you", msg.text);
           you.lat.textContent = `speech-to-text ${msg.stt_ms} ms`;
           const ravi = addLine("ravi", "");
@@ -854,6 +859,7 @@
           isAssistantGenerating = true;
           setState("thinking", "Ravi is thinking");
           statusText.textContent = "";
+          if (SCRIPTS[scriptKind]) { scriptIdx++; renderSay(); }
         }
         else if (msg.type === "llm_delta") {
           if (currentRaviText && isAssistantGenerating) {
@@ -879,18 +885,17 @@
           }
         }
         else if (msg.type === "hello") {
-          if (!langSelect.options.length) {
-            for (const l of msg.languages) langSelect.add(new Option(l.label, l.code));
-          }
+          languages = msg.languages;
+          renderLanguages();
           // A reconnect lands on the server default; restore the trainee's choice
           if (chosenLanguage && chosenLanguage !== msg.language) {
             ws.send(JSON.stringify({ action: "set_language", language: chosenLanguage }));
-          } else {
-            langSelect.value = msg.language;
-            langLabel.textContent = langSelect.options[langSelect.selectedIndex]?.text || "";
           }
-          if (myvad || currentMode !== "vad") resetButtonState();
           if (msg.product) renderProduct(msg.product);
+          if (msg.video_url) {
+            $("videoLink").href = msg.video_url;
+            $("videoLink").hidden = false;
+          }
           if (msg.demo) {
             const note = $("demoNote");
             note.textContent = `Public demo: up to ${msg.turns_per_call} turns per call and ${msg.scores_per_day} feedback reports a day.`;
@@ -900,13 +905,6 @@
         else if (msg.type === "limit") {
           showLimit(msg.message, msg.video_url);
           isAssistantGenerating = false;
-          resetButtonState();
-        }
-        else if (msg.type === "language_ack") {
-          langSelect.value = msg.language;
-          const label = langSelect.options[langSelect.selectedIndex]?.text || msg.language;
-          langLabel.textContent = label;
-          clearLog(`New call · Ravi will speak ${label}`);
           resetButtonState();
         }
         else if (msg.type === "scorecard") {
@@ -921,9 +919,43 @@
 
     connectWS();
 
+    // --- Starting and leaving a call ---
+    $("beginCall").addEventListener("click", () => {
+      startNewCall();
+      show("call");
+      // This tap is a user gesture: the mic permission prompt and audio unlock are allowed here
+      if (currentMode === "vad") initVAD();
+      else resetButtonState();
+    });
+
+    function leaveCall() {
+      audioQueue.stopAll();
+      if (myvad) myvad.pause();
+      if (isRecording) stopManualRecording();
+      releaseMic();
+    }
+
+    function startNewCall() {
+      audioQueue.reset();
+      isAssistantSpeaking = false;
+      isAssistantGenerating = false;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "reset" }));
+      }
+      scriptIdx = 0;
+      renderSay();
+      clearLog(currentMode === "hold" ? "Hold the button below, say your line, then let go."
+                                      : currentMode === "click" ? "Tap the button below to start talking."
+                                      : "Just start talking. Ravi is listening.");
+      if (currentMode === "vad" && myvad) myvad.start();
+      resetButtonState();
+    }
+
+    resetBtn.addEventListener("click", () => startNewCall());
+
     // --- Voice activity detection (hands-free mode) ---
     async function initVAD() {
-      if (myvad) return;
+      if (myvad) { myvad.start(); resetButtonState(); return; }
       try {
         statusText.textContent = "Starting microphone…";
         // One frame = 1536 samples at 16 kHz = 96 ms. The old 0.75/0.60 thresholds counted quiet
@@ -935,14 +967,14 @@
           preSpeechPadFrames: 3,          // keep ~0.3 s before speech starts, so the first word isn't clipped
           redemptionFrames: 10,           // ~1 s of real silence ends the turn
           onSpeechStart: () => {
-            if (currentMode !== "vad") return;
+            if (currentMode !== "vad" || screen !== "call") return;
             triggerBargeIn();
             isRecording = true;
             setState("you", "You are speaking");
             statusText.textContent = "";
           },
           onSpeechEnd: (audio) => {
-            if (currentMode !== "vad") return;
+            if (currentMode !== "vad" || screen !== "call") return;
             isRecording = false;
             const wavBlob = floatTo16BitPCM(audio);
             if (wavBlob.size > 2000 && ws && ws.readyState === WebSocket.OPEN) {
@@ -957,7 +989,7 @@
         resetButtonState();
       } catch (err) {
         console.warn("VAD could not start:", err);
-        statusText.textContent = "Couldn't start the microphone. Allow mic access and click Start call.";
+        statusText.textContent = "Couldn't start the microphone. Allow mic access and tap the button.";
       }
     }
 
@@ -974,30 +1006,32 @@
       if (currentMode === "vad") {
         const live = !!myvad;
         talkBtn.classList.toggle("live", live);
-        talkBtn.textContent = live ? "Listening" : "Start call";
-        setState(live ? "listening" : "idle", live ? "Your turn" : "Not started");
+        talkBtn.textContent = live ? "Listening" : "Start talking";
+        setState(live ? "listening" : "idle", live ? "Your turn" : "Ready");
         statusText.textContent = live
-          ? "Just talk. Pause for a moment when you're done; talk over Ravi to interrupt."
-          : "Click to allow the microphone, then just talk.";
+          ? "Just talk. Pause when you're done; talk over Ravi to interrupt."
+          : "Tap to allow the microphone.";
       } else {
         talkBtn.classList.remove("live");
-        talkBtn.textContent = currentMode === "click" ? "Click to talk" : "Hold to talk";
+        talkBtn.textContent = currentMode === "click" ? "Tap to talk" : "Hold to talk";
         setState("listening", "Your turn");
-        statusText.textContent = currentMode === "click" ? "Click once to start, again to send." : "Hold while you speak, release to send.";
+        statusText.textContent = currentMode === "click" ? "Tap once to start, again to send." : "Hold while you speak, let go to send.";
       }
     }
 
+    // Push-to-talk gets a fresh mic for every press and releases it afterwards (see rec.onstop)
     async function ensureMic() {
-      // On iPhone, playing Ravi's audio can interrupt the mic: the track ends or goes muted and
-      // the next recording comes out empty. Reconnect whenever the old track isn't live.
-      const track = mediaStream && mediaStream.getAudioTracks()[0];
-      if (!track || track.readyState === "ended" || track.muted) {
-        if (mediaStream) mediaStream.getTracks().forEach((t) => t.stop());
+      if (!mediaStream) {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
       }
       return mediaStream;
+    }
+
+    function releaseMic() {
+      if (mediaStream) mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
     }
 
     // --- Push-to-talk modes ---
@@ -1026,7 +1060,12 @@
         const mimeType = recordingMimeType();
         rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
-        rec.onstop = handleManualSend;
+        rec.onstop = () => {
+          // Release the mic after every turn. On iPhone, once Ravi's audio has played the old
+          // mic can report "live" yet deliver silence, so each press gets a fresh one.
+          releaseMic();
+          handleManualSend();
+        };
         // No timeslice: one complete file per turn. Slicing gave iPhone fragmented MP4s whose
         // header could go missing ("invalid media file"), and we never stream the pieces anyway.
         rec.start();
@@ -1034,7 +1073,7 @@
         recordStartTime = Date.now();
         talkBtn.classList.add("rec");
         setState("you", "Recording");
-        const verb = currentMode === "click" ? "Click to send" : "Release to send";
+        const verb = currentMode === "click" ? "Tap to send" : "Let go to send";
         talkBtn.textContent = `${verb} · 0:00`;
         recordTimer = setInterval(() => {
           const s = Math.floor((Date.now() - recordStartTime) / 1000);
@@ -1055,6 +1094,7 @@
     }
 
     function handleManualSend() {
+      if (screen !== "call") return;  // left the call while recording
       if (Date.now() - recordStartTime < 600) {
         showError("That was too short. Please say a full sentence.");
         resetButtonState();
@@ -1065,7 +1105,6 @@
       // "invalid media file" error from speech-to-text
       if (blob.size < 1500) {
         showError("Didn't catch that. Hold the button and try again.");
-        mediaStream = null;  // reconnect the mic next time
         resetButtonState();
         return;
       }
@@ -1096,22 +1135,7 @@
     // Long-pressing a button on Android opens a menu, which would cancel the recording
     talkBtn.addEventListener("contextmenu", (e) => { if (currentMode === "hold") e.preventDefault(); });
 
-    function startNewCall(notice) {
-      audioQueue.reset();
-      isAssistantSpeaking = false;
-      isAssistantGenerating = false;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: "reset" }));
-      }
-      clearLog(notice);
-      resetButtonState();
-    }
-
-    resetBtn.addEventListener("click", () => startNewCall("New call started"));
-
     // --- Scoring ---
-    const scorecardModal = $("scorecardModal");
-
     const criteriaLabels = {
       opening: "Opening",
       handling_objections: "Handling objections",
@@ -1151,13 +1175,6 @@
       if (score >= 3.5) return ["Nearly there", "good"];
       if (score >= 2.5) return ["Needs practice", "mid"];
       return ["Not ready", "bad"];
-    }
-
-    function el(tag, className, text) {
-      const e = document.createElement(tag);
-      if (className) e.className = className;
-      if (text !== undefined) e.textContent = text;
-      return e;
     }
 
     function showScorecard(data) {
@@ -1253,8 +1270,8 @@
         }
 
         $("modalFeedback").textContent = data.summary_feedback || "No coaching notes for this call.";
-        setState("idle", "Call ended");
-        scorecardModal.style.display = "flex";
+        leaveCall();
+        show("feedback");
       } catch (err) {
         showError("Couldn't show the scorecard: " + err.message);
       } finally {
@@ -1263,11 +1280,8 @@
       }
     }
 
-    $("closeModalBtn").addEventListener("click", () => {
-      scorecardModal.style.display = "none";
-      startNewCall("New call started");
-      if (currentMode === "vad" && myvad) myvad.start();
-    });
+    $("againBtn").addEventListener("click", () => show("brief"));
+    $("otherLangBtn").addEventListener("click", () => show("language"));
   </script>
 </body>
 </html>

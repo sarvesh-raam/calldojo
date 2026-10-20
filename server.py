@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from groq import Groq, AsyncGroq
 import edge_tts
 from languages import LANGUAGES, DEFAULT_LANGUAGE, get_language
-from limits import limits, DEMO_MODE
+from limits import limits, DEMO_MODE, DEMO_VIDEO_URL
 
 # The product the trainee is selling. The scorer fact-checks the agent's stated terms against it.
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "product.json"), encoding="utf-8") as _f:
@@ -153,7 +153,8 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.send_json({
         "type": "hello",
         "language": lang_code,
-        "languages": [{"code": c, "label": l["label"]} for c, l in LANGUAGES.items()],
+        "languages": [{"code": c, "label": l["label"], "native": l["native"]} for c, l in LANGUAGES.items()],
+        "video_url": DEMO_VIDEO_URL,
         "product": PRODUCT,
         **limits.info(),
     })

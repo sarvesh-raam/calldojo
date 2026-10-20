@@ -17,6 +17,7 @@ DEFAULT_LANGUAGE = "en"
 LANGUAGES = {
     "en": {
         "label": "English",
+        "native": "English",
         "voice": "en-IN-PrabhatNeural",
         "stt_model": "whisper-large-v3-turbo",
         "stt_language": "en",
@@ -29,6 +30,7 @@ LANGUAGES = {
     },
     "hi": {
         "label": "Hindi / Hinglish",
+        "native": "हिन्दी",
         "voice": "hi-IN-MadhurNeural",
         "stt_model": "whisper-large-v3",
         "stt_language": "hi",
@@ -46,6 +48,7 @@ LANGUAGES = {
     },
     "ta": {
         "label": "Tamil / Tanglish",
+        "native": "தமிழ்",
         "voice": "ta-IN-ValluvarNeural",
         "stt_model": "whisper-large-v3",
         "stt_language": "ta",
