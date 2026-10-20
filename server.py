@@ -50,12 +50,24 @@ def system_prompt(lang: dict) -> dict:
 turn_history = [{"role": "system", "content": PERSONA}]
 
 
+def audio_filename(audio_bytes: bytes) -> str:
+    """Name the upload by its real format. Hands-free sends WAV, Chrome/Android push-to-talk
+    sends WebM, and iPhone Safari sends MP4; the API goes by the file extension."""
+    if audio_bytes[:4] == b"RIFF":
+        return "speech.wav"
+    if audio_bytes[4:8] == b"ftyp":
+        return "speech.mp4"
+    if audio_bytes[:4] == b"OggS":
+        return "speech.ogg"
+    return "speech.webm"
+
+
 def stt(audio_bytes: bytes, lang: dict = LANGUAGES[DEFAULT_LANGUAGE]) -> str:
     kw = {"language": lang["stt_language"]}
     if lang["stt_prompt"]:
         kw["prompt"] = lang["stt_prompt"]
     r = client.audio.transcriptions.create(
-        file=("speech.webm", audio_bytes), model=lang["stt_model"], **kw)
+        file=(audio_filename(audio_bytes), audio_bytes), model=lang["stt_model"], **kw)
     return r.text.strip()
 
 

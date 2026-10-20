@@ -163,6 +163,11 @@
       cursor: pointer;
       font-weight: 600;
       transition: background 0.15s, border-color 0.15s;
+      /* Holding the button on a phone must not select text or open a menu */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
     }
     .mic:hover { border-color: var(--ink-3); }
     .mic.live { background: var(--accent-soft); border-color: transparent; color: var(--accent); cursor: default; }
@@ -332,7 +337,7 @@
         <select id="langSelect" title="Switching language starts a new call"></select>
         <label for="modeSelect">Mic</label>
         <select id="modeSelect">
-          <option value="vad">Hands-free</option>
+          <option value="vad">Hands-free (best with earphones)</option>
           <option value="click">Click to talk</option>
           <option value="hold">Hold to talk</option>
         </select>
@@ -516,6 +521,14 @@
     const langLabel = $("langLabel");
     const scoreBtn = $("scoreBtn");
 
+    // On a phone speaker the mic hears Ravi and treats his voice as the trainee's, so phones
+    // default to hold-to-talk, like a voice note. With earphones, hands-free works too.
+    if (isPhone()) {
+      currentMode = "hold";
+      modeSelect.value = "hold";
+      resetButtonState();
+    }
+
     let currentRaviText = null;   // text node of the line Ravi is currently speaking
     let currentRaviLat = null;
 
@@ -594,7 +607,9 @@
       const steps = el("ol", "steps");
       for (const [bold, rest] of [
         ["You're a bank loan officer.", " Ravi is a customer taking his first business loan, and he's nervous about hidden charges."],
-        ["Click Start call and talk to him out loud,", " like a phone call. He answers in his own voice, and you can interrupt him."],
+        currentMode === "hold"
+          ? ["Hold the Talk button while you speak, and let go when you're done,", " like a voice note. Ravi answers in his own voice."]
+          : ["Click Start call and talk to him out loud,", " like a phone call. He answers in his own voice, and you can interrupt him."],
         ["Click End call & get feedback.", " You're scored the way a sales manager would, and anything untrue you said is caught."],
       ]) {
         const li = el("li");
@@ -863,11 +878,14 @@
       if (myvad) return;
       try {
         statusText.textContent = "Starting microphone…";
+        // One frame = 1536 samples at 16 kHz = 96 ms. The old 0.75/0.60 thresholds counted quiet
+        // phone-speaker speech as "silence", so turns were cut after the first couple of words.
         myvad = await vad.MicVAD.new({
-          positiveSpeechThreshold: 0.75,
-          negativeSpeechThreshold: 0.60,
-          minSpeechFrames: 4,
-          redemptionFrames: 14, // ~700 ms of silence ends the turn
+          positiveSpeechThreshold: 0.5,   // the library's defaults: only real pauses count as silence
+          negativeSpeechThreshold: 0.35,
+          minSpeechFrames: 4,             // ~0.4 s, so a cough or click isn't a turn
+          preSpeechPadFrames: 3,          // keep ~0.3 s before speech starts, so the first word isn't clipped
+          redemptionFrames: 10,           // ~1 s of real silence ends the turn
           onSpeechStart: () => {
             if (currentMode !== "vad") return;
             triggerBargeIn();
@@ -931,13 +949,30 @@
     }
 
     // --- Push-to-talk modes ---
+    // iPhone Safari can't record webm; let the browser pick a format it supports. The server
+    // detects the format from the file's first bytes.
+    function recordingMimeType() {
+      const options = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+      return options.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+    }
+
+    let holdActive = false;   // finger/mouse is down on the button in hold mode
+    let starting = false;     // waiting for the mic, e.g. on the first-time permission prompt
+
     async function startManualRecording() {
       triggerBargeIn();
-      if (isRecording) return;
+      if (isRecording || starting) return;
+      starting = true;
       try {
         const stream = await ensureMic();
+        // Released before the mic was ready (often during the permission prompt): don't start
+        if (currentMode === "hold" && !holdActive) {
+          resetButtonState();
+          return;
+        }
         chunks = [];
-        rec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        const mimeType = recordingMimeType();
+        rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
         rec.onstop = handleManualSend;
         rec.start(100);
@@ -953,6 +988,8 @@
         }, 500);
       } catch (err) {
         showError("Microphone access error: " + err.message);
+      } finally {
+        starting = false;
       }
     }
 
@@ -973,7 +1010,7 @@
       talkBtn.textContent = "Sending…";
       setState("thinking", "Sending…");
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(new Blob(chunks, { type: "audio/webm" }));
+        ws.send(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
       }
     }
 
@@ -984,12 +1021,17 @@
         else stopManualRecording();
       }
     });
-    talkBtn.addEventListener("mousedown", () => { if (currentMode === "hold") startManualRecording(); });
-    window.addEventListener("mouseup", () => { if (currentMode === "hold") stopManualRecording(); });
+    function holdStart() { holdActive = true; startManualRecording(); }
+    function holdEnd() { holdActive = false; stopManualRecording(); }
+    talkBtn.addEventListener("mousedown", () => { if (currentMode === "hold") holdStart(); });
+    window.addEventListener("mouseup", () => { if (currentMode === "hold") holdEnd(); });
     talkBtn.addEventListener("touchstart", (e) => {
-      if (currentMode === "hold") { e.preventDefault(); startManualRecording(); }
+      if (currentMode === "hold") { e.preventDefault(); holdStart(); }
     }, { passive: false });
-    window.addEventListener("touchend", () => { if (currentMode === "hold") stopManualRecording(); });
+    window.addEventListener("touchend", () => { if (currentMode === "hold") holdEnd(); });
+    window.addEventListener("touchcancel", () => { if (currentMode === "hold") holdEnd(); });
+    // Long-pressing a button on Android opens a menu, which would cancel the recording
+    talkBtn.addEventListener("contextmenu", (e) => { if (currentMode === "hold") e.preventDefault(); });
 
     function startNewCall(notice) {
       audioQueue.reset();

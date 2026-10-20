@@ -33,6 +33,12 @@ class SentenceSplitting(unittest.TestCase):
         self.assertEqual(clause, "Loan of 1,50,000 rupees,")
         self.assertEqual(rest, "okay")
 
+    def test_audio_format_detected_from_bytes(self):
+        self.assertEqual(server.audio_filename(b"RIFF\x00\x00\x00\x00WAVE"), "speech.wav")
+        self.assertEqual(server.audio_filename(b"\x00\x00\x00\x20ftypM4A "), "speech.mp4")  # iPhone
+        self.assertEqual(server.audio_filename(b"OggS\x00\x02"), "speech.ogg")
+        self.assertEqual(server.audio_filename(b"\x1a\x45\xdf\xa3"), "speech.webm")  # Chrome
+
     def test_emoji_never_reaches_tts(self):
         self.assertEqual(server.speakable("🙏"), "")
         self.assertEqual(server.speakable("இருக்கா? 😅"), "இருக்கா?")
