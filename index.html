@@ -81,13 +81,39 @@
       padding: 0.5rem 1rem 2rem;
       display: grid;
       grid-template-columns: 300px minmax(0, 1fr);
+      grid-template-areas:
+        "caller transcript"
+        "extras transcript";
+      grid-template-rows: auto 1fr;
       gap: 1rem;
       align-items: start;
     }
+    .caller { grid-area: caller; }
+    .transcript { grid-area: transcript; }
+    .extras { grid-area: extras; display: flex; flex-direction: column; gap: 0.75rem; }
+
+    /* Phones: the conversation comes right after the controls, reference material last, and the
+       end-call buttons stay pinned to the bottom of the screen */
     @media (max-width: 760px) {
-      .page { grid-template-columns: minmax(0, 1fr); }
-      .caller { position: static; }
+      .page {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "caller" "transcript" "extras";
+        grid-template-rows: none;
+      }
       .brand span { display: none; }
+      body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+      .caller .actions {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 5;
+        flex-direction: row;
+        padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
+        background: var(--surface);
+        border-top: 1px solid var(--line);
+      }
+      .caller .actions .btn { flex: 1; padding: 0.75rem 0.5rem; }
+      .caller .actions #scoreBtn { flex: 2; }
+      .transcript { min-height: 50vh; max-height: 75vh; }
     }
 
     .panel {
@@ -97,7 +123,7 @@
     }
 
     /* Caller card */
-    .caller { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; position: sticky; top: 1rem; }
+    .caller { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
     .who { display: flex; gap: 0.8rem; align-items: center; }
     .avatar {
       width: 48px; height: 48px; border-radius: 50%;
@@ -110,7 +136,7 @@
     .brief { font-size: 0.85rem; color: var(--ink-2); background: var(--surface-2); border-radius: 8px; padding: 0.7rem 0.8rem; }
     .brief b { color: var(--ink); font-weight: 600; }
 
-    .sheet { font-size: 0.82rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem 0.75rem; }
+    .sheet { font-size: 0.82rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem 0.75rem; background: var(--surface); }
     .sheet summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     .sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.75rem; margin-top: 0.5rem; }
     .sheet dt { color: var(--ink-3); }
@@ -201,12 +227,13 @@
     .script h4 span { font-weight: 400; color: var(--ink-3); }
     .script ol { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; color: var(--ink); }
     #scriptCard .scripts { grid-template-columns: 1fr; margin-top: 0.5rem; }
-    .report .how { font-size: 0.78rem; color: var(--ink-3); margin-top: 0.15rem; max-width: 26rem; }
+    .report .how { font-size: 0.8rem; color: var(--ink-3); margin-top: -0.5rem; }
 
     .banner a { color: inherit; font-weight: 600; }
+    .banner-wrap { max-width: 880px; margin: 0 auto; padding: 0 1rem; }
     .banner {
       display: none;
-      grid-column: 1 / -1;
+      margin-top: 0.5rem;
       background: var(--bad-soft);
       color: var(--bad);
       border-radius: 8px;
@@ -236,7 +263,7 @@
     .overall { text-align: right; }
     .overall b { font-size: 1.8rem; line-height: 1; }
     .overall small { color: var(--ink-3); }
-    .verdict { display: inline-block; margin-top: 0.3rem; font-size: 0.75rem; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; }
+    .verdict { display: inline-block; white-space: nowrap; margin-top: 0.3rem; font-size: 0.75rem; font-weight: 650; padding: 0.15rem 0.5rem; border-radius: 99px; }
     .verdict.good { background: var(--accent-soft); color: var(--accent); }
     .verdict.mid { background: var(--warn-soft); color: var(--warn); }
     .verdict.bad { background: var(--bad-soft); color: var(--bad); }
@@ -274,9 +301,9 @@
     <div id="conn" class="conn"><i></i><span id="connText">Connecting…</span></div>
   </div>
 
-  <main class="page">
-    <div id="errorBanner" class="banner"></div>
+  <div class="banner-wrap"><div id="errorBanner" class="banner"></div></div>
 
+  <main class="page">
     <aside class="panel caller">
       <div class="who">
         <div class="avatar">RK</div>
@@ -315,7 +342,18 @@
         <button id="scoreBtn" class="btn primary">End call &amp; get feedback</button>
         <button id="reset" class="btn">Restart call</button>
       </div>
+    </aside>
 
+    <section id="transcriptPanel" class="panel transcript">
+      <header>
+        <h3>Transcript</h3>
+        <span id="langLabel"></span>
+      </header>
+      <div id="log"></div>
+    </section>
+
+    <!-- Reference material: under the controls on desktop, after the conversation on phones -->
+    <aside class="extras">
       <details id="scriptCard" class="sheet">
         <summary>Not sure what to say? Use a script</summary>
         <div id="scriptList"></div>
@@ -327,14 +365,6 @@
         <p id="productDocs" class="fine"></p>
       </details>
     </aside>
-
-    <section class="panel transcript">
-      <header>
-        <h3>Transcript</h3>
-        <span id="langLabel"></span>
-      </header>
-      <div id="log"></div>
-    </section>
   </main>
 
   <div id="scorecardModal" class="overlay">
@@ -343,14 +373,14 @@
         <div>
           <h2>Call feedback</h2>
           <p id="modalCallId"></p>
-          <p class="how">Scored against a 4-part call-quality checklist, the way a sales manager
-            would. Red flags and wrong product terms lower the score automatically.</p>
         </div>
         <div class="overall">
           <b id="modalOverallScore"></b><small> / 5</small><br>
           <span id="modalVerdict" class="verdict"></span>
         </div>
       </div>
+      <p class="how">Scored against a 4-part call-quality checklist, the way a sales manager
+        would. Red flags and wrong product terms lower the score automatically.</p>
       <div id="modalFlags"></div>
       <div id="scoreCardsContainer"></div>
       <div id="modalFacts"></div>
@@ -473,6 +503,7 @@
     let recordTimer = null;
 
     const $ = (id) => document.getElementById(id);
+    const isPhone = () => window.matchMedia("(max-width: 760px)").matches;
     const conn = $("conn"), connText = $("connText");
     const talkBtn = $("talk");
     const statusText = $("status");
@@ -694,6 +725,8 @@
         dl.appendChild(el("dd", "", termValue(t)));
       }
       $("productDocs").textContent = `Documents: ${p.documents.join(", ")}. Loans ${p.loan_range}. ${p.note || ""}`;
+      // On a phone an open sheet fills the screen; it stays one tap away
+      $("productCard").open = !isPhone();
       $("productCard").hidden = false;
     }
 
@@ -744,7 +777,11 @@
         const msg = JSON.parse(event.data);
 
         if (msg.type === "user_transcription") {
-          if (!callStart) callStart = Date.now();
+          if (!callStart) {
+            callStart = Date.now();
+            // On a phone the conversation sits below the controls; bring it into view once
+            if (isPhone()) $("transcriptPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+          }
           const you = addLine("you", msg.text);
           you.lat.textContent = `speech-to-text ${msg.stt_ms} ms`;
           const ravi = addLine("ravi", "");
