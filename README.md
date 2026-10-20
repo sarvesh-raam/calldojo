@@ -6,6 +6,7 @@ Ravi answers out loud, can be interrupted mid-sentence, and speaks English, Hing
 Tanglish. At the end of the call an LLM grades the trainee on a 4-criterion banking QA
 rubric and gives coaching feedback.
 
+**🎧 [Try it live](https://calldojo.onrender.com)** (Chrome or Edge, allow the microphone, headphones help) ·
 **▶ [Watch the 2-minute demo](https://drive.google.com/file/d/1-hEmO5fhhHWwHhXwAcqHx-mJpJoq1-3h/view?usp=sharing)**: a call, an interruption, Hinglish, and the scorer catching a lying agent.
 
 | A practice call | The feedback after a bad call |
@@ -215,6 +216,8 @@ languages.py         Per-language voice / STT / LLM / persona settings
 limits.py            Public-demo usage caps (off unless DEMO_MODE=1)
 scorer.py            QA rubric, red flags + caps, output validation
 evaluate_scorer.py   Benchmark runner (agreement, MAE, bias, run-to-run variance)
+tests/               Unit tests run by CI (no API calls)
+Dockerfile           Image for the public demo (demo limits on)
 benchmark/           dev.json (tuning) and test.json (held out) labelled calls
 index.html           Single-page UI: VAD, audio queue, language picker, scorecard modal
 transcripts/         Saved calls, one JSON per scored call (gitignored)
@@ -230,6 +233,11 @@ notes.md             Stage-by-stage build log and learnings
 | `GROQ_EVAL_MODEL` | `openai/gpt-oss-20b` | The QA scorer |
 
 ### Running a public demo
+
+The live demo runs on Render (free tier, Singapore) from the [`Dockerfile`](Dockerfile).
+GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) runs the unit tests, a page-script check
+and a Docker build on every push, and Render deploys only after those pass. An uptime monitor
+pings `/health` every 5 minutes so the free instance never sleeps; `/health` never calls Groq.
 
 A public link spends your Groq quota on every visitor. Set `DEMO_MODE=1` to turn on the
 limits in [`limits.py`](limits.py). They are off by default, so local use is unlimited.
