@@ -1,0 +1,114 @@
+[
+  {
+    "id": "g01",
+    "description": "All terms correct",
+    "transcript": [
+      {"role": "user", "content": "Good morning Ravi, I'm Priya from DojoBank about your business loan enquiry."},
+      {"role": "assistant", "content": "What are the charges?"},
+      {"role": "user", "content": "The interest rate is 12% per year, fixed, and the processing fee is 1% of the loan."},
+      {"role": "assistant", "content": "And if I pay late?"},
+      {"role": "user", "content": "You get a 5-day grace period, after that the late fee is 500 rupees."}
+    ],
+    "expected_wrong": []
+  },
+  {
+    "id": "g02",
+    "description": "Quotes a lower interest rate than the product",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, Priya from DojoBank about your business loan enquiry."},
+      {"role": "assistant", "content": "What is the interest rate?"},
+      {"role": "user", "content": "It's just 10% per year, and the processing fee is 1%."}
+    ],
+    "expected_wrong": ["interest_rate"]
+  },
+  {
+    "id": "g03",
+    "description": "Claims there is no processing fee",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, Priya from DojoBank about your loan enquiry."},
+      {"role": "assistant", "content": "Is there a processing fee?"},
+      {"role": "user", "content": "No processing fee at all, Ravi. The rate is 12% per year."}
+    ],
+    "expected_wrong": ["processing_fee"]
+  },
+  {
+    "id": "g04",
+    "description": "Wrong grace period and late fee",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, Priya from DojoBank."},
+      {"role": "assistant", "content": "What if I miss an EMI?"},
+      {"role": "user", "content": "You have a 7-day grace period and then a late fee of 300 rupees."}
+    ],
+    "expected_wrong": ["grace_period", "late_fee"]
+  },
+  {
+    "id": "g05",
+    "description": "Hindi, all correct",
+    "transcript": [
+      {"role": "user", "content": "नमस्ते रवि जी, मैं DojoBank से प्रिया बोल रही हूँ, आपके business loan के बारे में।"},
+      {"role": "assistant", "content": "Interest rate कितना है?"},
+      {"role": "user", "content": "Interest rate 12% सालाना fixed है, और processing fee 1% लगेगी।"}
+    ],
+    "expected_wrong": []
+  },
+  {
+    "id": "g06",
+    "description": "Hindi, wrong interest rate",
+    "transcript": [
+      {"role": "user", "content": "नमस्ते रवि जी, DojoBank से प्रिया बात कर रही हूँ।"},
+      {"role": "assistant", "content": "ब्याज कितना लगेगा?"},
+      {"role": "user", "content": "सिर्फ 11 percent सालाना, और processing fee 1%।"}
+    ],
+    "expected_wrong": ["interest_rate"]
+  },
+  {
+    "id": "g07",
+    "description": "Tamil, wrong processing fee",
+    "transcript": [
+      {"role": "user", "content": "வணக்கம் ரவி, நான் DojoBank-ல இருந்து பிரியா பேசறேன்."},
+      {"role": "assistant", "content": "Charges எவ்வளவு?"},
+      {"role": "user", "content": "Interest rate 12 percent, processing fee 2 percent மட்டும் தான்."}
+    ],
+    "expected_wrong": ["processing_fee"]
+  },
+  {
+    "id": "g08",
+    "description": "Overstates tenure; foreclosure correct",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, Priya from DojoBank about your loan enquiry."},
+      {"role": "assistant", "content": "How long can I take to repay?"},
+      {"role": "user", "content": "You can take up to 60 months, and there are no foreclosure charges after 6 EMIs."}
+    ],
+    "expected_wrong": ["max_tenure"]
+  },
+  {
+    "id": "g09",
+    "description": "Customer states a wrong rate; agent corrects it (customer's words must not count)",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, Priya from DojoBank about your loan enquiry."},
+      {"role": "assistant", "content": "My friend said your interest is only 9 percent, is that right?"},
+      {"role": "user", "content": "No Ravi, it's 12% per year, fixed."}
+    ],
+    "expected_wrong": []
+  },
+  {
+    "id": "g10",
+    "description": "Numbers spoken as words, all correct",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, Priya from DojoBank."},
+      {"role": "assistant", "content": "Tell me the late payment rules."},
+      {"role": "user", "content": "You get a five day grace period, and after that the late fee is five hundred rupees. The rate is twelve percent a year."}
+    ],
+    "expected_wrong": []
+  },
+  {
+    "id": "g11",
+    "description": "Rate given as a range (handled by the hedged-figures flag, not the fact check)",
+    "transcript": [
+      {"role": "user", "content": "Hello Ravi, Priya from DojoBank."},
+      {"role": "assistant", "content": "What's the interest?"},
+      {"role": "user", "content": "Somewhere between 12 and 14 percent, it depends on your profile."}
+    ],
+    "expected_wrong": []
+  }
+]

@@ -1,9 +1,11 @@
 """Fast checks that run on every push (no API calls, no network).
 Run locally: python -m unittest discover -s tests -v
 """
+import json
 import os
 import sys
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("GROQ_API_KEY", "test-key")
@@ -71,6 +73,140 @@ class ScorerCaps(unittest.TestCase):
         bad["criteria"]["closing"]["score"] = 6
         with self.assertRaises(ValueError):
             scorer._validate(bad)
+
+
+PRODUCT = {"terms": {
+    "interest_rate": {"label": "Interest rate", "value": 12, "unit": "% per year"},
+    "processing_fee": {"label": "Processing fee", "value": 1, "unit": "% of the loan"},
+}}
+
+
+class ProductFactCheck(unittest.TestCase):
+    def check(self, claims):
+        card = scorer._validate(model_output())
+        scorer._apply_fact_check(card, claims, PRODUCT)
+        return card
+
+    def test_correct_terms_pass(self):
+        r = self.check([{"term": "interest_rate", "number": 12, "quote": "12%"}])
+        self.assertTrue(r["fact_check"][0]["ok"])
+        self.assertEqual(r["scores"]["honesty_about_charges"], 5)
+        self.assertNotIn("contradicts_product_sheet", r["red_flags"])
+
+    def test_wrong_rate_caps_honesty_and_overall(self):
+        r = self.check([{"term": "interest_rate", "number": 10, "quote": "just 10%"}])
+        self.assertFalse(r["fact_check"][0]["ok"])
+        self.assertEqual(r["scores"]["honesty_about_charges"], 1)
+        self.assertEqual(r["overall_score"], 4.0)
+        self.assertIn("sheet says 12", r["red_flags"]["contradicts_product_sheet"])
+
+    def test_no_fee_claim_is_zero_and_wrong(self):
+        r = self.check([{"term": "processing_fee", "number": 0, "quote": "no fee"}])
+        self.assertFalse(r["fact_check"][0]["ok"])
+
+    def test_unknown_terms_and_junk_numbers_are_ignored(self):
+        r = self.check([{"term": "cashback", "number": 5}, {"term": "interest_rate", "number": "twelve"}])
+        self.assertEqual(r["fact_check"], [])
+
+    def test_missing_claims_is_malformed(self):
+        with self.assertRaises(ValueError):
+            scorer._parse_claims({})
+
+    def test_rubric_request_is_unchanged_by_product(self):
+        self.assertEqual(scorer._validate(model_output())["fact_check"], [])
+        self.assertNotIn("product_claims", scorer.RUBRIC)
+
+    def test_prompt_never_reveals_the_right_values(self):
+        prompt = scorer.product_claims_prompt({"terms": {
+            "interest_rate": {"label": "Interest rate", "value": 37.5, "unit": "% per year"}}})
+        self.assertNotIn("37.5", prompt)
+
+
+def rate_limited(per: str, retry_after: str = "0"):
+    """A Groq 429 worded like the real one: '... on tokens per day (TPD)' or '... per minute (TPM)'."""
+    import httpx
+    from groq import RateLimitError
+    req = httpx.Request("POST", "https://api.groq.com")
+    return RateLimitError(f"Rate limit reached on tokens per {per}", response=httpx.Response(
+        429, request=req, headers={"retry-after": retry_after}), body=None)
+
+
+class FakeGroq:
+    """Stands in for the Groq client: `script` maps model -> list of outcomes, consumed in order."""
+    def __init__(self, script):
+        self.script, self.calls = script, []
+        self.chat = self
+        self.completions = self
+
+    def create(self, model, **kwargs):
+        self.calls.append(model)
+        outcome = self.script[model].pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        msg = type("M", (), {"content": json.dumps(outcome)})
+        return type("C", (), {"choices": [type("Ch", (), {"message": msg})]})
+
+
+class ModelFallback(unittest.TestCase):
+    def setUp(self):
+        self._client, self._models = scorer.client, scorer.EVAL_MODELS
+        scorer.EVAL_MODELS = ["main", "backup"]
+
+    def tearDown(self):
+        scorer.client, scorer.EVAL_MODELS = self._client, self._models
+
+    def test_daily_limit_switches_to_backup_at_once(self):
+        scorer.client = FakeGroq({"main": [rate_limited("day", "900")], "backup": [model_output()]})
+        result, model = scorer._call_json("p", scorer._validate)
+        self.assertEqual(model, "backup")
+        self.assertEqual(scorer.client.calls, ["main", "backup"])
+
+    def test_per_minute_limit_on_main_uses_backup_without_waiting(self):
+        scorer.client = FakeGroq({"main": [rate_limited("minute", "45")], "backup": [model_output()]})
+        with unittest.mock.patch.object(scorer.time, "sleep") as sleep:
+            _, model = scorer._call_json("p", scorer._validate)
+        self.assertEqual(model, "backup")
+        sleep.assert_not_called()
+
+    def test_malformed_output_retries_same_model(self):
+        scorer.client = FakeGroq({"main": [{"criteria": {}}, model_output()], "backup": []})
+        _, model = scorer._call_json("p", scorer._validate)
+        self.assertEqual(model, "main")
+
+    def test_both_out_of_quota_is_an_error_not_a_fake_score(self):
+        scorer.client = FakeGroq({"main": [rate_limited("day", "900")], "backup": [rate_limited("day", "900")]})
+        result = scorer.score_transcript([{"role": "user", "content": "hi"}])
+        self.assertIn("error", result)
+
+    def test_last_model_waits_out_per_minute_limit(self):
+        # A long per-minute wait used to be mistaken for a daily limit; waits don't use up retries
+        scorer.EVAL_MODELS = ["only"]
+        scorer.client = FakeGroq({"only": [rate_limited("minute", "45"), rate_limited("minute", "45"),
+                                           model_output()]})
+        with unittest.mock.patch.object(scorer.time, "sleep") as sleep:
+            _, model = scorer._call_json("p", scorer._validate)
+        self.assertEqual(model, "only")
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_last_model_daily_limit_is_final(self):
+        scorer.EVAL_MODELS = ["only"]
+        scorer.client = FakeGroq({"only": [rate_limited("day", "900")]})
+        with self.assertRaises(Exception):
+            scorer._call_json("p", scorer._validate)
+
+    def test_connection_error_is_retried(self):
+        import httpx
+        from groq import APIConnectionError
+        err = APIConnectionError(request=httpx.Request("POST", "https://api.groq.com"))
+        scorer.client = FakeGroq({"main": [err, model_output()], "backup": []})
+        with unittest.mock.patch.object(scorer.time, "sleep"):
+            _, model = scorer._call_json("p", scorer._validate)
+        self.assertEqual(model, "main")
+
+    def test_scorecard_says_which_model_scored(self):
+        scorer.client = FakeGroq({"main": [rate_limited("day", "900")], "backup": [model_output()]})
+        result = scorer.score_transcript([{"role": "user", "content": "hi"}])
+        self.assertEqual(result["scored_by"], "backup")
 
 
 class DemoLimits(unittest.TestCase):

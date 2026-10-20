@@ -2,7 +2,7 @@
 Run:  export GROQ_API_KEY=...   then   uvicorn server:app --reload
 Open: http://localhost:8000
 """
-import os, re, sys, time, base64, asyncio, traceback
+import os, re, sys, json, time, base64, asyncio, traceback
 
 # Redirected Windows consoles use cp1252; logging a Hindi/Tamil transcript must never crash a turn
 sys.stdout.reconfigure(errors="backslashreplace")
@@ -13,6 +13,10 @@ from groq import Groq, AsyncGroq
 import edge_tts
 from languages import LANGUAGES, DEFAULT_LANGUAGE, get_language
 from limits import limits, DEMO_MODE
+
+# The product the trainee is selling. The scorer fact-checks the agent's stated terms against it.
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "product.json"), encoding="utf-8") as _f:
+    PRODUCT = json.load(_f)
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -138,6 +142,7 @@ async def websocket_endpoint(ws: WebSocket):
         "type": "hello",
         "language": lang_code,
         "languages": [{"code": c, "label": l["label"]} for c, l in LANGUAGES.items()],
+        "product": PRODUCT,
         **limits.info(),
     })
 
@@ -415,7 +420,7 @@ async def score_call(history: list, language: str) -> dict:
                          "Keep going: answer Ravi's concerns and close the call."}
 
     call_id, filepath = save_transcript(history, language)
-    scorecard = await asyncio.to_thread(score_transcript, history)
+    scorecard = await asyncio.to_thread(score_transcript, history, PRODUCT)
     scorecard["call_id"] = call_id
     scorecard["transcript_path"] = filepath
     return scorecard

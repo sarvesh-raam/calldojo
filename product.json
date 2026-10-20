@@ -1,0 +1,15 @@
+{
+  "lender": "DojoBank",
+  "product": "Udaan Small Business Loan",
+  "note": "Fictional product for practice calls.",
+  "loan_range": "₹50,000 to ₹10 lakh",
+  "terms": {
+    "interest_rate":      {"label": "Interest rate",      "value": 12,  "unit": "% per year, fixed"},
+    "processing_fee":     {"label": "Processing fee",     "value": 1,   "unit": "% of the loan, one time"},
+    "grace_period":       {"label": "Grace period",       "value": 5,   "unit": "days after the EMI date"},
+    "late_fee":           {"label": "Late fee",           "value": 500, "unit": "₹ per missed EMI, after the grace period"},
+    "foreclosure_charge": {"label": "Foreclosure charge", "value": 0,   "unit": "% after 6 EMIs are paid"},
+    "max_tenure":         {"label": "Maximum tenure",     "value": 36,  "unit": "months"}
+  },
+  "documents": ["Aadhaar", "PAN", "Last 6 months of bank statements"]
+}

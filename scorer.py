@@ -1,17 +1,30 @@
 """Stage 5: Evaluation & LLM Scorer for Loan Agent Transcripts.
 Scores agent calls against a strict 4-criteria rubric (1 to 5 scale).
 """
-import os, json
-from groq import Groq, BadRequestError
+import os, json, time
+from concurrent.futures import ThreadPoolExecutor
+from groq import Groq, APIConnectionError, BadRequestError, RateLimitError
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Free-tier TPM is ~4 scorings/minute; extra retries let the SDK wait out 429s (it honours retry-after)
-client = Groq(api_key=os.environ.get("GROQ_API_KEY", "dummy_key"), max_retries=5, timeout=60)
-EVAL_MODEL = os.environ.get("GROQ_EVAL_MODEL", "openai/gpt-oss-20b")
+# Rate limits are handled in _call_json, not by the SDK: the SDK would sit out a *daily* limit
+# with backoff before failing, when the right move is to switch to the backup model at once.
+client = Groq(api_key=os.environ.get("GROQ_API_KEY", "dummy_key"), max_retries=0, timeout=60)
+
+# Groq's free-tier limits are per model, so a backup model has its own daily budget. Both models
+# must be benchmarked (python evaluate_scorer.py --model ...) before they're trusted to score.
+# gpt-oss-120b at low reasoning effort: 100% within 1 point on the held-out set, 11/11 grounding.
+EVAL_MODELS = [m for m in (
+    os.environ.get("GROQ_EVAL_MODEL", "openai/gpt-oss-120b"),
+    os.environ.get("GROQ_EVAL_FALLBACK_MODEL", "openai/gpt-oss-20b"),
+) if m]
+# gpt-oss "thinks" before answering and those hidden tokens count against the daily budget
+REASONING_EFFORT = os.environ.get("GROQ_EVAL_REASONING_EFFORT", "low")
 CRITERIA = ("opening", "handling_objections", "honesty_about_charges", "closing")
 SCORE_ATTEMPTS = 2
+MAX_RATE_LIMIT_WAIT = 60  # seconds; Groq's per-minute windows clear within a minute
+MAX_RATE_LIMIT_WAITS = 3  # per-minute waits on the last model before giving up
 
 # Red flag -> maximum score per criterion. Enforced in code because the model, scoring each
 # criterion from one quoted line, reliably misses lies and pressure elsewhere in the call.
@@ -23,6 +36,29 @@ FLAG_CAPS = {
     "pressure_or_rudeness_in_final_turn": {"closing": 1},
     "unsafe_request":                     {"closing": 1},
 }
+
+# Caps honesty when the agent misstates the product. Kept out of FLAG_CAPS: it is decided by
+# comparing numbers in code (see _apply_fact_check), not by a yes/no answer from the model.
+PRODUCT_MISMATCH_CAP = 1
+
+
+def product_claims_prompt(product: dict) -> str:
+    """A separate, small extraction request. It lists the terms and units but deliberately NOT the
+    correct values: the model only extracts what the agent said, so it can't drift toward the right
+    answer. Code compares the numbers with the sheet (see _apply_fact_check)."""
+    terms = "\n".join(f'  - {k}: {t["label"]}, in {t["unit"]}' for k, t in product["terms"].items())
+    return f"""
+You extract facts from a loan sales call. List every product term the Loan Agent stated AS A FACT
+(not questions, not the customer's words). Use only these terms, converting to the unit shown:
+{terms}
+"No processing fee" or "zero foreclosure charges" is a claim of 0. Numbers said in words count
+("twelve percent" is 12). Skip ranges ("12-14%"). The call may be in English, Hindi or Tamil.
+
+Return ONLY a JSON object:
+{{"product_claims": [{{"term": "<one of the terms above>", "number": <number>, "quote": "<agent line>"}}]}}
+Use an empty list if the agent stated none.
+"""
+
 
 RUBRIC = """
 You are an expert Quality Assurance (QA) Evaluator for loan sales phone calls.
@@ -115,10 +151,73 @@ or what was missing, with no anchor numbers and no quotes, e.g. "Gave the rate a
 """
 
 
-def score_transcript(transcript: list) -> dict:
-    """Takes a list of dialogue turns [{"role": "user"|"assistant", "content": "..."}]
+def _is_daily_limit(e: RateLimitError) -> bool:
+    # Groq names the limit in the message: "... on tokens per day (TPD)" vs "... per minute (TPM)".
+    # Guessing from the retry-after length misread long per-minute waits as daily limits.
+    return "per day" in str(e)
 
-    and returns a rubric evaluation JSON.
+
+def _retry_after(e: RateLimitError) -> float:
+    """Seconds Groq asks us to wait (capped, so a trainee never waits more than a minute)."""
+    try:
+        return min(float(e.response.headers.get("retry-after", "5")), MAX_RATE_LIMIT_WAIT)
+    except (AttributeError, ValueError):
+        return 5.0
+
+
+def _call_json(prompt: str, parse):
+    """One JSON request, returning (parsed result, model that answered).
+
+    - Malformed output (~1 in 10: Groq rejects invalid JSON with a 400, or a field is missing) is
+      random, so it's retried on the same model. So is a dropped connection.
+    - Any rate limit moves straight to the next model, which has its own quota. Only the last
+      model waits out a per-minute limit; a daily limit there is final.
+    """
+    last_error = None
+    for i, model in enumerate(EVAL_MODELS):
+        is_last = i == len(EVAL_MODELS) - 1
+        failures = waits = 0
+        while failures < SCORE_ATTEMPTS:
+            try:
+                completion = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    response_format={"type": "json_object"},
+                    reasoning_effort=REASONING_EFFORT,
+                )
+                return parse(json.loads(completion.choices[0].message.content)), model
+            except RateLimitError as e:
+                last_error = e
+                if not is_last or _is_daily_limit(e) or waits >= MAX_RATE_LIMIT_WAITS:
+                    print(f"[Scorer] {model} is rate-limited; moving to the next model, if any")
+                    break
+                waits += 1  # waiting is not a failure of the request, so it doesn't use a retry
+                time.sleep(_retry_after(e))
+            except APIConnectionError as e:
+                last_error = e
+                failures += 1
+                print(f"[Scorer] {model}: connection error, retrying")
+                time.sleep(2)
+            except (BadRequestError, ValueError) as e:  # JSONDecodeError is a ValueError
+                last_error = e
+                failures += 1
+                print(f"[Scorer] {model} returned malformed output: {str(e)[:120]}")
+    raise last_error
+
+
+def _parse_claims(result: dict) -> list:
+    claims = result.get("product_claims")
+    if not isinstance(claims, list):
+        raise ValueError("response missing 'product_claims'")
+    return claims
+
+
+def score_transcript(transcript: list, product: dict = None) -> dict:
+    """Takes a list of dialogue turns [{"role": "user"|"assistant", "content": "..."}]
+    and returns a rubric evaluation JSON. With a product sheet, a second, smaller request
+    extracts the agent's stated terms (in parallel) and code checks them against the sheet.
+    The rubric request itself is identical with or without a product sheet.
     """
     # Format dialogue into readable script:
     # Notice: In our roleplay, "user" is the Loan Agent (human trainee)
@@ -132,30 +231,72 @@ def score_transcript(transcript: list) -> dict:
 
     transcript_text = "\n".join(formatted_lines)
 
-    prompt = f"{RUBRIC}\n\n--- CONVERSATION TRANSCRIPT ---\n{transcript_text}\n--- END TRANSCRIPT ---"
+    call = f"\n\n--- CONVERSATION TRANSCRIPT ---\n{transcript_text}\n--- END TRANSCRIPT ---"
 
-    # ~1 in 10 responses is malformed (Groq rejects invalid JSON with a 400, or a field is
-    # missing). These are random, so one retry recovers almost all of them.
-    last_error = None
-    for attempt in range(1, SCORE_ATTEMPTS + 1):
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        rubric_job = pool.submit(_call_json, RUBRIC + call, _validate)
+        claims_job = pool.submit(_call_json, product_claims_prompt(product) + call, _parse_claims) if product else None
+
         try:
-            completion = client.chat.completions.create(
-                model=EVAL_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                response_format={"type": "json_object"}
-            )
-            result = json.loads(completion.choices[0].message.content)
-            return _validate(result)
-        except (BadRequestError, ValueError) as e:  # JSONDecodeError is a ValueError
-            last_error = e
-            print(f"[Scorer] Attempt {attempt} returned malformed output: {str(e)[:120]}")
+            scorecard, model = rubric_job.result()
+            scorecard["scored_by"] = model
         except Exception as e:
-            last_error = e
-            break
-    # Never fabricate a scorecard: callers check "error" and show/skip it.
-    print(f"[Scorer Error] {last_error}")
-    return {"error": f"Scoring failed: {last_error}"}
+            # Never fabricate a scorecard: callers check "error" and show/skip it.
+            print(f"[Scorer Error] {e}")
+            return {"error": f"Scoring failed: {e}"}
+
+        if claims_job:
+            try:
+                _apply_fact_check(scorecard, claims_job.result()[0], product)
+            except Exception as e:
+                # The scorecard is still valid; say the fact check didn't run rather than lose it
+                print(f"[Scorer] Fact check failed: {e}")
+                scorecard["fact_check_error"] = "The fact check against the product sheet couldn't run for this call."
+    return scorecard
+
+
+def _fact_check(claims: list, product: dict) -> list:
+    """Compare each number the agent stated with the product sheet."""
+    checked = []
+    for c in claims:
+        if not isinstance(c, dict) or c.get("term") not in product["terms"]:
+            continue  # an unknown term is the model's slip, not the agent's
+        try:
+            said = float(c.get("number"))
+        except (TypeError, ValueError):
+            continue
+        term = product["terms"][c["term"]]
+        expected = float(term["value"])
+        checked.append({
+            "term": c["term"],
+            "label": term["label"],
+            "unit": term["unit"],
+            "said": said,
+            "expected": expected,
+            "ok": abs(said - expected) < 1e-6,
+            "quote": c.get("quote", ""),
+        })
+    return checked
+
+
+def _num(x: float) -> str:
+    return f"{x:g}"
+
+
+def _apply_fact_check(scorecard: dict, claims: list, product: dict):
+    """Attach the fact check to a validated scorecard and cap honesty on any mismatch."""
+    fact_check = _fact_check(claims, product)
+    scorecard["fact_check"] = fact_check
+    wrong = [f for f in fact_check if not f["ok"]]
+    if not wrong:
+        return
+    scorecard["red_flags"]["contradicts_product_sheet"] = "; ".join(
+        f'said {f["label"].lower()} {_num(f["said"])}, sheet says {_num(f["expected"])}' for f in wrong)
+    scores, c = scorecard["scores"], "honesty_about_charges"
+    if scores[c] > PRODUCT_MISMATCH_CAP:
+        scorecard["rationale"][c] += f" [Capped {scores[c]}->{PRODUCT_MISMATCH_CAP}: contradicts product sheet]"
+        scores[c] = PRODUCT_MISMATCH_CAP
+        scorecard["overall_score"] = round(sum(scores.values()) / len(CRITERIA), 2)
 
 
 def _validate(result: dict) -> dict:
@@ -198,6 +339,7 @@ def _validate(result: dict) -> dict:
         "evidence": evidence,
         "summary_feedback": result.get("summary_feedback", ""),
         "red_flags": raised,
+        "fact_check": [],
     }
 
 

@@ -20,8 +20,9 @@ TURNS_PER_CALL = _int("DEMO_TURNS_PER_CALL", 15)
 TURNS_PER_VISITOR_DAY = _int("DEMO_TURNS_PER_VISITOR_DAY", 45)
 SCORES_PER_VISITOR_DAY = _int("DEMO_SCORES_PER_VISITOR_DAY", 3)
 TURNS_PER_DAY = _int("DEMO_TURNS_PER_DAY", 400)
-# Each scoring is ~2,600 tokens of the scorer's 200k/day free-tier budget
-SCORES_PER_DAY = _int("DEMO_SCORES_PER_DAY", 40)
+# Each scoring is ~5,000 tokens (rubric + product fact check) of the scorer's 200k/day free-tier
+# budget; 25 leaves room for the owner's own benchmark runs
+SCORES_PER_DAY = _int("DEMO_SCORES_PER_DAY", 25)
 MAX_CONNECTIONS = _int("DEMO_MAX_CONNECTIONS", 10)
 MAX_AUDIO_BYTES = _int("DEMO_MAX_AUDIO_BYTES", 2_000_000)  # ~60 s of 16 kHz WAV
 

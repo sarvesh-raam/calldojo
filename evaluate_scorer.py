@@ -9,14 +9,19 @@ Benchmark sets live in benchmark/*.json:
   dev.json  - used while tuning the rubric (expect optimistic numbers)
   test.json - held out; written after the rubric was fixed. Report this one.
 
-Usage: python evaluate_scorer.py [--split dev|test|all] [--runs N]
+  grounding.json - calls with correct/wrong product terms; checks the product-sheet fact check
+
+Usage: python evaluate_scorer.py [--split dev|test|all|grounding] [--runs N]
 """
 import argparse, json, os, sys, time
+import scorer
 from scorer import score_transcript, CRITERIA
 
 # Windows consoles default to cp1252; model rationales can contain characters it can't encode
 sys.stdout.reconfigure(errors="replace")
 
+# Pause between calls; raise it (--delay) for models with small per-minute limits
+DELAY = 1.0
 BENCHMARK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "benchmark")
 
 
@@ -48,7 +53,7 @@ def run_evaluation(dataset: list, verbose: bool = True) -> dict:
         llm_scores = res["scores"]
         if verbose:
             print(f"[{idx+1}/{total_turns}] {item['id']}: Human={item['human_scores']} | LLM={llm_scores}", flush=True)
-        time.sleep(1.0)
+        time.sleep(DELAY)
 
         for c in CRITERIA:
             h = item["human_scores"][c]
@@ -91,6 +96,52 @@ def run_evaluation(dataset: list, verbose: bool = True) -> dict:
         "failed": failed,
         "disagreements": disagreements,
     }
+
+
+def run_grounding(dataset: list, product: dict) -> dict:
+    """Did the fact check flag exactly the terms the agent got wrong?"""
+    true_pos = false_pos = false_neg = 0
+    failed, misses = [], []
+    for idx, item in enumerate(dataset):
+        res = score_transcript(item["transcript"], product)
+        if "error" in res:
+            print(f"[{idx+1}/{len(dataset)}] {item['id']}: SKIPPED ({res['error']})", flush=True)
+            failed.append(item["id"])
+            continue
+        if res.get("fact_check_error"):
+            # The rubric scored but the fact check didn't run: "nothing flagged" is not a pass
+            print(f"[{idx+1}/{len(dataset)}] {item['id']}: SKIPPED (fact check didn't run)", flush=True)
+            failed.append(item["id"])
+            continue
+        flagged = {f["term"] for f in res["fact_check"] if not f["ok"]}
+        expected = set(item["expected_wrong"])
+        true_pos += len(flagged & expected)
+        false_pos += len(flagged - expected)
+        false_neg += len(expected - flagged)
+        ok = flagged == expected
+        if expected and res["scores"]["honesty_about_charges"] > 1:
+            ok = False  # a caught mismatch must also cap honesty
+        mark = "ok  " if ok else "MISS"
+        print(f"[{idx+1}/{len(dataset)}] {mark} {item['id']}: expected={sorted(expected)} flagged={sorted(flagged)} "
+              f"honesty={res['scores']['honesty_about_charges']}", flush=True)
+        if not ok:
+            misses.append(item["id"])
+        time.sleep(DELAY)
+
+    scored = len(dataset) - len(failed)
+    print("\n" + "=" * 72)
+    print(f"GROUNDING: product-sheet fact check  (calls={len(dataset)}, scored={scored})")
+    print("=" * 72)
+    if scored:
+        caught = true_pos / (true_pos + false_neg) * 100 if true_pos + false_neg else 100.0
+        print(f"Calls fully correct:            {scored - len(misses)}/{scored}")
+        print(f"Wrong terms caught (recall):    {true_pos}/{true_pos + false_neg} ({caught:.0f}%)")
+        print(f"Correct terms flagged wrongly:  {false_pos}")
+    if misses:
+        print(f"Misses: {', '.join(misses)}")
+    if failed:
+        print(f"Skipped (scorer error): {', '.join(failed)}")
+    return {"misses": misses, "failed": failed, "false_pos": false_pos, "false_neg": false_neg}
 
 
 def print_report(results: list, split: str, n_calls: int):
@@ -136,11 +187,22 @@ def print_report(results: list, split: str, n_calls: int):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--split", choices=["dev", "test", "all"], default="test")
+    ap.add_argument("--split", choices=["dev", "test", "all", "grounding"], default="test")
     ap.add_argument("--runs", type=int, default=1, help="repeat to measure run-to-run variance")
+    ap.add_argument("--model", help="benchmark this one model, with no fallback, so results "
+                                    "are attributable (default: the live primary/backup chain)")
+    ap.add_argument("--delay", type=float, default=1.0, help="seconds between calls")
     args = ap.parse_args()
+    DELAY = args.delay
+    if args.model:
+        scorer.EVAL_MODELS[:] = [args.model]
+    print(f"Scorer model(s): {', '.join(scorer.EVAL_MODELS)} | reasoning effort: {scorer.REASONING_EFFORT}")
 
     dataset = load_split(args.split)
+    if args.split == "grounding":
+        with open(os.path.join(os.path.dirname(BENCHMARK_DIR), "product.json"), encoding="utf-8") as f:
+            run_grounding(dataset, json.load(f))
+        sys.exit(0)
     results = []
     for run in range(args.runs):
         print(f"\nRun {run+1}/{args.runs}: evaluating {len(dataset)} transcripts ({args.split})...")

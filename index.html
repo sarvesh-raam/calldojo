@@ -110,6 +110,13 @@
     .brief { font-size: 0.85rem; color: var(--ink-2); background: var(--surface-2); border-radius: 8px; padding: 0.7rem 0.8rem; }
     .brief b { color: var(--ink); font-weight: 600; }
 
+    .sheet { font-size: 0.82rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem 0.75rem; }
+    .sheet summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+    .sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.75rem; margin-top: 0.5rem; }
+    .sheet dt { color: var(--ink-3); }
+    .sheet dd { color: var(--ink); }
+    .sheet .fine { color: var(--ink-3); margin-top: 0.4rem; }
+
     .callstate { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; }
     .state { display: flex; align-items: center; gap: 0.5rem; color: var(--ink-2); }
     .state i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
@@ -235,6 +242,11 @@
     .flags h4 { color: var(--bad); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
     .flags li { margin-left: 1rem; color: var(--ink); }
     .flags q { color: var(--ink-2); }
+    .facts h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 0.35rem; }
+    .facts li { list-style: none; font-size: 0.85rem; margin-bottom: 0.25rem; }
+    .facts .ok b { color: var(--accent); }
+    .facts .bad b { color: var(--bad); }
+    .facts q { color: var(--ink-3); font-size: 0.8rem; }
     .coach { background: var(--surface-2); border-radius: 8px; padding: 0.8rem 0.9rem; }
     .coach h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 0.3rem; }
   </style>
@@ -261,7 +273,7 @@
 
       <p class="brief">
         Ravi is nervous about <b>hidden charges</b> and <b>missing an EMI</b>.
-        Introduce yourself, answer him honestly, and agree on next steps.
+        Introduce yourself, answer him honestly using the product sheet at the bottom, and agree on next steps.
       </p>
       <p id="demoNote" class="hint" hidden></p>
 
@@ -288,6 +300,12 @@
         <button id="scoreBtn" class="btn primary">End call &amp; get feedback</button>
         <button id="reset" class="btn">Restart call</button>
       </div>
+
+      <details id="productCard" class="sheet" open hidden>
+        <summary id="productTitle">Product sheet</summary>
+        <dl id="productTerms"></dl>
+        <p id="productDocs" class="fine"></p>
+      </details>
     </aside>
 
     <section class="panel transcript">
@@ -315,6 +333,7 @@
       </div>
       <div id="modalFlags"></div>
       <div id="scoreCardsContainer"></div>
+      <div id="modalFacts"></div>
       <div class="coach">
         <h4>Coaching</h4>
         <p id="modalFeedback"></p>
@@ -582,6 +601,25 @@
       }
     });
 
+    // --- Product sheet: what the trainee is selling (the scorer fact-checks against it) ---
+    function termValue(t) {
+      if (t.unit.startsWith("%")) return `${t.value}%${t.unit.slice(1)}`;
+      if (t.unit.startsWith("₹")) return `₹${t.value.toLocaleString("en-IN")}${t.unit.slice(1)}`;
+      return `${t.value} ${t.unit}`;
+    }
+
+    function renderProduct(p) {
+      $("productTitle").textContent = `Product sheet · ${p.lender} ${p.product}`;
+      const dl = $("productTerms");
+      dl.innerHTML = "";
+      for (const t of Object.values(p.terms)) {
+        dl.appendChild(el("dt", "", t.label));
+        dl.appendChild(el("dd", "", termValue(t)));
+      }
+      $("productDocs").textContent = `Documents: ${p.documents.join(", ")}. Loans ${p.loan_range}. ${p.note || ""}`;
+      $("productCard").hidden = false;
+    }
+
     // --- Language ---
     let chosenLanguage = null;
     langSelect.addEventListener("change", () => {
@@ -675,6 +713,7 @@
             langLabel.textContent = langSelect.options[langSelect.selectedIndex]?.text || "";
           }
           if (myvad || currentMode !== "vad") resetButtonState();
+          if (msg.product) renderProduct(msg.product);
           if (msg.demo) {
             const note = $("demoNote");
             note.textContent = `Public demo: up to ${msg.turns_per_call} turns per call and ${msg.scores_per_day} feedback reports a day.`;
@@ -866,7 +905,8 @@
       hedged_or_vague_figures: "Vague figures",
       pressure_or_rudeness: "Pressure or rudeness",
       pressure_or_rudeness_in_final_turn: "Pressure at the close",
-      unsafe_request: "Asked for OTP / PIN"
+      unsafe_request: "Asked for OTP / PIN",
+      contradicts_product_sheet: "Wrong product terms"
     };
 
     scoreBtn.addEventListener("click", () => {
@@ -966,6 +1006,31 @@
             card.appendChild(el("div", "capped", `Lowered from ${c[1]} to ${c[2]}: ${c[3]}`));
           }
           container.appendChild(card);
+        }
+
+        const facts = $("modalFacts");
+        facts.innerHTML = "";
+        if ((data.fact_check || []).length) {
+          const box = el("div", "facts");
+          box.appendChild(el("h4", "", "Fact check against the product sheet"));
+          const ul = el("ul");
+          for (const f of data.fact_check) {
+            const li = el("li", f.ok ? "ok" : "bad");
+            const unit = { unit: f.unit, value: f.said };
+            li.appendChild(el("b", "", f.ok ? "✓ " : "✗ "));
+            li.appendChild(document.createTextNode(f.ok
+              ? `${f.label}: ${termValue(unit)}`
+              : `${f.label}: you said ${termValue(unit)}, the sheet says ${termValue({ unit: f.unit, value: f.expected })}`));
+            if (f.quote) {
+              li.appendChild(document.createElement("br"));
+              li.appendChild(el("q", "", f.quote));
+            }
+            ul.appendChild(li);
+          }
+          box.appendChild(ul);
+          facts.appendChild(box);
+        } else if (data.fact_check_error) {
+          facts.appendChild(el("p", "hint", data.fact_check_error));
         }
 
         $("modalFeedback").textContent = data.summary_feedback || "No coaching notes for this call.";

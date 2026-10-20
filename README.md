@@ -13,8 +13,9 @@ rubric and gives coaching feedback.
 |---|---|
 | ![A call in progress: Ravi's card on the left, the live transcript with latency on the right](docs/call.png) | ![Scorecard flagging a false "no fees" claim and an OTP request, with every criterion at 1/5](docs/scorecard.png) |
 
-**Held-out benchmark:** the scorer agrees with labelled calls within 1 point **98.6%** of the
-time, and catches every false claim, pressure close and OTP request in the test set.
+**Held-out benchmark:** the scorer agrees with labelled calls within 1 point **100%** of the
+time, catches every false claim, pressure close and OTP request in the test set, and catches
+**every misquoted product term** (7/7) against the product sheet, with no false alarms.
 
 ---
 
@@ -138,6 +139,33 @@ whenever" + an OTP request scored 4/5 on honesty).
 
 Calls with fewer than 3 agent turns are not scored, since the rubric has nothing to judge yet.
 
+### Fact check against the product sheet
+
+The trainee sells a (fictional) product described in [`product.json`](product.json): rate,
+processing fee, grace period, late fee, foreclosure charge and tenure. The app shows the sheet
+next to the call, and a second request, sent in parallel with the rubric request, extracts every
+term the agent stated as a number. **Code** compares those numbers with the sheet; any mismatch
+caps honesty at 1 and shows on the scorecard ("you said 10%, the sheet says 12%").
+
+- The extraction prompt lists the terms and units but **never the correct values**, so the model
+  can't drift toward the right answer while reading the call.
+- It is a separate request rather than extra instructions in the rubric request. Adding it to
+  the rubric request made 3 of 11 scorings fail outright, and keeping it separate means the
+  rubric request is exactly the benchmarked one.
+- If only the fact check fails, the trainee still gets the scorecard, with a note saying the
+  fact check didn't run.
+
+### Models and rate limits
+
+| Role | Model | Why |
+|---|---|---|
+| Scorer | `gpt-oss-120b`, reasoning effort low | Best on the held-out set, no malformed outputs in 20 calls |
+| Backup scorer | `gpt-oss-20b` | Groq's free limits are per model, so the backup has its own budget |
+
+A daily limit, or any limit on the main model, moves straight to the backup; only the last
+model waits out a per-minute limit. The scorecard records which model scored it. Low reasoning
+effort cuts the tokens each scoring uses, which matters on a free tier.
+
 ### Benchmark
 
 [`evaluate_scorer.py`](evaluate_scorer.py) compares the scorer with labelled calls in
@@ -151,7 +179,13 @@ Calls with fewer than 3 agent turns are not scored, since the rubric has nothing
 ```bash
 python -u evaluate_scorer.py --split test --runs 2   # report this one
 python -u evaluate_scorer.py --split dev --runs 1
+python -u evaluate_scorer.py --split grounding       # product-sheet fact check
+python -u evaluate_scorer.py --split test --model openai/gpt-oss-20b --delay 12   # one model, no fallback
 ```
+
+`grounding.json` has 11 calls in English, Hindi and Tamil where the agent states correct or
+wrong product terms, including traps: the customer (not the agent) quoting a wrong rate, numbers
+said in words, and a rate given as a range (handled by the hedged-figures flag instead).
 
 It reports exact match, within-1-point agreement (target **> 85%**), mean absolute error,
 and bias (LLM − label) for each criterion. Calls the scorer fails on are skipped and listed,
@@ -163,7 +197,12 @@ never counted as agreement.
 | Full anchors | dev | 96.2% | 80.0% | |
 | Full anchors | test | 86.7% | 71.5% | Only ~1.5 runs; honesty 67.8%, missed lies and pressure |
 | Full anchors + red-flag caps | dev | 97.5% | 80.0% | |
-| **Full anchors + red-flag caps** | **test** | **98.6%** | **86.8%** | Honesty 100% within 1; every lie, pressure close and OTP request caught (2 runs, both 98.6%) |
+| Full anchors + red-flag caps (20b) | test | 98.6% | 86.8% | Honesty 100% within 1; every lie, pressure close and OTP request caught (2 runs, both 98.6%) |
+| **+ trainee-facing reasons, low reasoning effort (120b)** | **test** | **100%** | **81.2%** | 0 of 20 scorings failed. This is the live scorer |
+
+| Fact check (120b, low effort) | Calls fully correct | Wrong terms caught | False alarms |
+|---|---|---|---|
+| `grounding.json` | **11/11** | **7/7** | **0** |
 
 Reliability: in that run 4 of 40 scorings (10%) failed because the model returned malformed
 JSON. These were skipped, not counted. The scorer now retries once on malformed output, which
@@ -214,7 +253,8 @@ single shared history and is not used by the UI.
 server.py            FastAPI app: WebSocket call loop, streaming, barge-in, scoring hook
 languages.py         Per-language voice / STT / LLM / persona settings
 limits.py            Public-demo usage caps (off unless DEMO_MODE=1)
-scorer.py            QA rubric, red flags + caps, output validation
+scorer.py            QA rubric, red flags + caps, product fact check, model fallback
+product.json         The (fictional) loan product the trainee sells
 evaluate_scorer.py   Benchmark runner (agreement, MAE, bias, run-to-run variance)
 tests/               Unit tests run by CI (no API calls)
 Dockerfile           Image for the public demo (demo limits on)
@@ -230,7 +270,9 @@ notes.md             Stage-by-stage build log and learnings
 |---|---|---|
 | `GROQ_API_KEY` | – | All Groq calls (required) |
 | `GROQ_LLM_MODEL` | `qwen/qwen3.8-27b` | Ravi's model for English calls |
-| `GROQ_EVAL_MODEL` | `openai/gpt-oss-20b` | The QA scorer |
+| `GROQ_EVAL_MODEL` | `openai/gpt-oss-120b` | The QA scorer |
+| `GROQ_EVAL_FALLBACK_MODEL` | `openai/gpt-oss-20b` | Used when the scorer is rate-limited (empty disables) |
+| `GROQ_EVAL_REASONING_EFFORT` | `low` | Fewer hidden reasoning tokens per scoring |
 
 ### Running a public demo
 
@@ -249,7 +291,7 @@ limits in [`limits.py`](limits.py). They are off by default, so local use is unl
 | `DEMO_TURNS_PER_VISITOR_DAY` | 45 | Turns per visitor (IP) per UTC day |
 | `DEMO_SCORES_PER_VISITOR_DAY` | 3 | Scorecards per visitor per day |
 | `DEMO_TURNS_PER_DAY` | 400 | Turns across all visitors per day |
-| `DEMO_SCORES_PER_DAY` | 40 | Scorecards across all visitors (~100k scorer tokens) |
+| `DEMO_SCORES_PER_DAY` | 25 | Scorecards across all visitors (~125k scorer tokens; each is a rubric request plus a fact-check request) |
 | `DEMO_MAX_CONNECTIONS` | 10 | Simultaneous calls |
 | `DEMO_VIDEO_URL` | – | Linked from every limit message, so a capped visitor still sees the product |
 
@@ -260,10 +302,13 @@ score don't count against the scorecard limits.
 
 ## Known limitations
 
-- **Groq free-tier limits.** Each model has its own per-minute and per-day token limits. On
-  the free tier, `gpt-oss-20b` allows 200k tokens a day, which is about 75 scorings, shared
-  between the benchmark and every trainee. Hindi and Tamil calls draw on `gpt-oss-120b`'s
-  own limit. For more than a handful of users, use a paid tier.
+- **Groq free-tier limits.** Each model has its own per-minute and per-day token limits
+  (200k tokens a day for `gpt-oss-20b`), shared between the benchmark and every trainee. The
+  backup model and low reasoning effort stretch this, and the demo caps scorecards per day,
+  but for more than a handful of users use a paid tier. `gpt-oss-120b` is also Ravi's model for
+  Hindi and Tamil calls, so those share its budget with the scorer.
+- **The backup scorer at low reasoning effort is not yet re-benchmarked.** `gpt-oss-20b`
+  scored 98.6% at the default effort; rerun with `--model openai/gpt-oss-20b` to confirm.
 - **Scorer is benchmarked in English only.** Hindi and Tamil scorecards are not yet
   validated; add calls in those languages to `benchmark/` before relying on them.
 - **Tamil speech recognition** is the weakest part. It was tested on synthetic voices, and
