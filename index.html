@@ -111,7 +111,9 @@
         background: var(--surface);
         border-top: 1px solid var(--line);
       }
+      .caller .actions { flex-wrap: wrap; }
       .caller .actions .btn { flex: 1; padding: 0.75rem 0.5rem; }
+      .caller .actions .listen { flex-basis: 100%; }
       .caller .actions #scoreBtn { flex: 2; }
       .transcript { min-height: 50vh; max-height: 75vh; }
     }
@@ -196,6 +198,7 @@
     .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
     .btn.primary:hover { opacity: 0.9; }
     .btn:disabled { opacity: 0.55; cursor: wait; }
+    .btn.listen { background: var(--accent); border-color: var(--accent); color: #fff; }
 
     /* Transcript */
     .transcript { min-height: 460px; max-height: calc(100vh - 7rem); display: flex; flex-direction: column; }
@@ -344,6 +347,7 @@
       </div>
 
       <div class="actions">
+        <button id="playBlocked" class="btn listen" hidden>Tap to hear Ravi</button>
         <button id="scoreBtn" class="btn primary">End call &amp; get feedback</button>
         <button id="reset" class="btn">Restart call</button>
       </div>
@@ -399,14 +403,30 @@
 
   <script>
     // --- Plays Ravi's sentences in order and remembers which ones were actually heard ---
+    // Phones (iPhones especially) only allow sound started by a tap. Ravi's audio arrives later,
+    // from the server, so a fresh Audio per sentence was silently blocked. One element is reused
+    // for the whole call and "unlocked" during the trainee's first tap; if a phone still blocks
+    // it, the sentence is kept and a "Tap to hear Ravi" button appears instead of skipping it.
     class AudioQueue {
-      constructor(onSpeakingChange) {
+      constructor(onSpeakingChange, onBlocked) {
         this.queue = [];
         this.isPlaying = false;
-        this.currentAudio = null;
+        this.el = new Audio();
+        this.unlocked = false;
         this.playedSentences = [];
         this.currentSentence = "";
         this.onSpeakingChange = onSpeakingChange;
+        this.onBlocked = onBlocked;
+      }
+
+      // Call from inside a tap/click handler: playing a moment of silence then marks the
+      // element as allowed to play later without a tap
+      unlock() {
+        if (this.unlocked || this.isPlaying) return;
+        this.unlocked = true;
+        const silence = URL.createObjectURL(floatTo16BitPCM(new Float32Array(1600)));
+        this.el.src = silence;
+        this.el.play().then(() => this.el.pause()).catch(() => { this.unlocked = false; });
       }
 
       enqueue(blob, sentenceText) {
@@ -426,22 +446,36 @@
         const item = this.queue.shift();
         this.currentSentence = item.text;
         const url = URL.createObjectURL(item.blob);
-        this.currentAudio = new Audio(url);
+        const el = this.el;
 
-        this.currentAudio.onended = () => {
+        el.onended = () => {
           this.playedSentences.push(this.currentSentence);
           URL.revokeObjectURL(url);
           this.playNext();
         };
-        this.currentAudio.onerror = (e) => {
+        el.onerror = (e) => {
           console.error("Audio error:", e);
           URL.revokeObjectURL(url);
           this.playNext();
         };
-        this.currentAudio.play().catch(e => {
-          console.warn("Autoplay blocked:", e);
+        el.src = url;
+        el.play().catch((e) => {
+          if (e.name === "NotAllowedError") {
+            // Blocked by the browser: keep the sentence and ask for a tap
+            this.queue.unshift(item);
+            this.isPlaying = false;
+            if (this.onBlocked) this.onBlocked(true);
+            return;
+          }
+          console.warn("Audio play failed:", e);
           this.playNext();
         });
+      }
+
+      // From the "Tap to hear Ravi" button: the tap itself allows playback
+      resume() {
+        this.unlocked = true;
+        if (!this.isPlaying) this.playNext();
       }
 
       getHeardText() {
@@ -452,11 +486,11 @@
 
       stopAll() {
         this.queue = [];
-        if (this.currentAudio) {
-          this.currentAudio.pause();
-          this.currentAudio = null;
-        }
+        // Detach handlers first so stopping doesn't trigger the next sentence
+        this.el.onended = this.el.onerror = null;
+        this.el.pause();
         this.isPlaying = false;
+        if (this.onBlocked) this.onBlocked(false);
         if (this.onSpeakingChange) this.onSpeakingChange(false);
       }
 
@@ -567,6 +601,20 @@
       } else if (!isRecording) {
         resetButtonState();
       }
+    }, (blocked) => {
+      playBlockedBtn.hidden = !blocked;
+      if (blocked) setState("ravi", "Tap to hear Ravi");
+    });
+
+    // Every tap on the page is a chance to unlock audio for the phone (see AudioQueue)
+    for (const ev of ["pointerdown", "touchstart", "keydown"]) {
+      document.addEventListener(ev, () => audioQueue.unlock(), { capture: true, passive: true });
+    }
+
+    const playBlockedBtn = $("playBlocked");
+    playBlockedBtn.addEventListener("click", () => {
+      playBlockedBtn.hidden = true;
+      audioQueue.resume();
     });
 
     // --- First-time guide: a visitor shouldn't have to guess what to say ---

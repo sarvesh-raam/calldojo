@@ -20,8 +20,9 @@ LANGUAGES = {
         "voice": "en-IN-PrabhatNeural",
         "stt_model": "whisper-large-v3-turbo",
         "stt_language": "en",
-        # Whisper's prompt biases its vocabulary: without it "Axis Bank" came out as "Access Bank"
-        "stt_prompt": "Axis Bank, HDFC Bank, ICICI Bank, SBI, Kotak. EMI, processing fee, Aadhaar, PAN, WhatsApp.",
+        # Whisper's prompt biases its vocabulary toward the product's words (without a prompt,
+        # "Axis Bank" came out as "Access Bank"); keep it in step with product.json
+        "stt_prompt": "DojoBank, Udaan business loan. Interest rate, processing fee, grace period, late fee, EMI, foreclosure, tenure. Aadhaar, PAN, bank statements, WhatsApp.",
         "llm_model": os.environ.get("GROQ_LLM_MODEL", "qwen/qwen3.8-27b"),
         "llm_kwargs": {"max_tokens": 120},
         "persona_rule": "",
@@ -32,7 +33,7 @@ LANGUAGES = {
         "stt_model": "whisper-large-v3",
         "stt_language": "hi",
         # Primes Whisper to keep English loanwords in Latin script, as people type Hinglish
-        "stt_prompt": "मैं Axis Bank से बात कर रही हूँ, आपके loan, EMI, interest rate और processing fee के बारे में। Aadhaar card, PAN card, WhatsApp.",
+        "stt_prompt": "मैं DojoBank से बात कर रही हूँ, आपके Udaan business loan के बारे में। Interest rate, processing fee, grace period, late fee, EMI. Aadhaar card, PAN card, bank statement, WhatsApp.",
         "llm_model": "openai/gpt-oss-120b",
         # max_tokens covers hidden reasoning tokens too, so it needs headroom
         "llm_kwargs": {"max_tokens": 400, "reasoning_effort": "low"},
@@ -48,7 +49,7 @@ LANGUAGES = {
         "voice": "ta-IN-ValluvarNeural",
         "stt_model": "whisper-large-v3",
         "stt_language": "ta",
-        "stt_prompt": "நான் Axis Bank-ல இருந்து பேசறேன், உங்க loan, EMI, interest rate, processing fee பத்தி. Aadhaar card, PAN card, WhatsApp.",
+        "stt_prompt": "நான் DojoBank-ல இருந்து பேசறேன், உங்க Udaan business loan பத்தி. Interest rate, processing fee, grace period, late fee, EMI. Aadhaar card, PAN card, bank statement, WhatsApp.",
         "llm_model": "openai/gpt-oss-120b",
         "llm_kwargs": {"max_tokens": 400, "reasoning_effort": "low"},
         "persona_rule": (
