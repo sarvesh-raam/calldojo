@@ -434,8 +434,11 @@
         this.el.play().then(() => this.el.pause()).catch(() => { this.unlocked = false; });
       }
 
-      enqueue(blob, sentenceText) {
-        this.queue.push({ blob, text: sentenceText });
+      // playMs: where the speech in the clip ends (from the server). Edge-TTS clips end with
+      // ~0.9 s of silence, which played back to back left dead air mid-sentence and between
+      // sentences, so the clip is cut there and the next one starts.
+      enqueue(blob, sentenceText, playMs) {
+        this.queue.push({ blob, text: sentenceText, playMs });
         if (!this.isPlaying) this.playNext();
       }
 
@@ -453,13 +456,26 @@
         const url = URL.createObjectURL(item.blob);
         const el = this.el;
 
-        el.onended = () => {
+        let done = false;
+        const finish = () => {
+          if (done) return;  // the cut timer and the natural end can both fire
+          done = true;
+          clearTimeout(this.cutTimer);
+          el.onended = el.onerror = el.onplaying = null;
           this.playedSentences.push(this.currentSentence);
           URL.revokeObjectURL(url);
           this.playNext();
         };
+        el.onended = finish;
+        el.onplaying = () => {
+          if (!item.playMs) return;
+          clearTimeout(this.cutTimer);
+          this.cutTimer = setTimeout(finish, Math.max(0, item.playMs - el.currentTime * 1000));
+        };
         el.onerror = (e) => {
           console.error("Audio error:", e);
+          done = true;
+          clearTimeout(this.cutTimer);
           URL.revokeObjectURL(url);
           this.playNext();
         };
@@ -492,7 +508,8 @@
       stopAll() {
         this.queue = [];
         // Detach handlers first so stopping doesn't trigger the next sentence
-        this.el.onended = this.el.onerror = null;
+        clearTimeout(this.cutTimer);
+        this.el.onended = this.el.onerror = this.el.onplaying = null;
         this.el.pause();
         this.isPlaying = false;
         if (this.onBlocked) this.onBlocked(false);
@@ -875,7 +892,7 @@
           const binaryStr = atob(msg.audio_b64);
           const bytes = new Uint8Array(binaryStr.length);
           for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-          audioQueue.enqueue(new Blob([bytes], { type: "audio/mpeg" }), msg.text);
+          audioQueue.enqueue(new Blob([bytes], { type: "audio/mpeg" }), msg.text, msg.play_ms);
         }
         else if (msg.type === "turn_complete") {
           isAssistantGenerating = false;

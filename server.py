@@ -80,11 +80,29 @@ def llm(messages: list) -> str:
 
 
 async def tts(text: str, voice: str = LANGUAGES[DEFAULT_LANGUAGE]["voice"]) -> bytes:
+    return (await tts_timed(text, voice))[0]
+
+
+# Pause to keep after the last word: a breath at a comma, a normal beat at the end of a sentence
+PAUSE_AFTER_CLAUSE = 0.12
+PAUSE_AFTER_SENTENCE = 0.35
+
+
+async def tts_timed(text: str, voice: str) -> tuple:
+    """Audio plus how long to play it, in ms. Every Edge-TTS clip ends with ~0.9 s of silence;
+    played back to back, that put a full second of dead air at each sentence break and in the
+    middle of sentences split at the first comma. Word timings say where the speech really ends."""
     out = bytearray()
-    async for chunk in edge_tts.Communicate(text, voice).stream():
+    speech_end = None
+    async for chunk in edge_tts.Communicate(text, voice, boundary="WordBoundary").stream():
         if chunk["type"] == "audio":
             out += chunk["data"]
-    return bytes(out)
+        elif chunk["type"] == "WordBoundary":
+            speech_end = (chunk["offset"] + chunk["duration"]) / 1e7  # 100 ns units
+    if speech_end is None:
+        return bytes(out), None
+    pause = PAUSE_AFTER_CLAUSE if text.rstrip()[-1:] in (",", ";", "—") else PAUSE_AFTER_SENTENCE
+    return bytes(out), round((speech_end + pause) * 1000)
 
 
 import json
@@ -225,44 +243,64 @@ async def websocket_endpoint(ws: WebSocket):
         first_audio_sent = False
         ttfa_ms = None
         sentence_idx = 0
+        first_piece_queued = False
 
-        async def send_sentence_audio(sentence: str):
-            nonlocal first_audio_sent, ttfa_ms, sentence_idx
-            clean_s = speakable(sentence)
-            if not clean_s:
-                return
-            sentence_idx += 1
+        # Each sentence (or the first clause) is synthesized as soon as its text is ready, in
+        # parallel, and sent strictly in order. Synthesizing one after another left Ravi silent
+        # at the first comma while the rest of the sentence was still being turned into audio.
+        pending = asyncio.Queue()  # (text, synthesis task) in speaking order; None ends the turn
+
+        async def synthesize(text: str):
             t_tts_s = time.perf_counter()
             # Edge-TTS intermittently returns no audio; one bad sentence must not kill the whole turn
-            audio_data = None
             for attempt in (1, 2):
                 try:
-                    audio_data = await tts(clean_s, lang["voice"])
-                    break
+                    audio, play_ms = await tts_timed(text, lang["voice"])
+                    return audio, play_ms, round((time.perf_counter() - t_tts_s) * 1000)
                 except edge_tts.exceptions.NoAudioReceived as e:
-                    print(f"[TTS] Attempt {attempt} got no audio for {clean_s!r}: {e}")
-            if not audio_data:
-                return  # text is already on screen via llm_delta; it just won't be spoken
-            t_tts_e = time.perf_counter()
-            chunk_tts_ms = round((t_tts_e - t_tts_s) * 1000)
+                    print(f"[TTS] Attempt {attempt} got no audio for {text!r}: {e}")
+            return None, None, 0
 
-            if not first_audio_sent:
-                first_audio_sent = True
-                ttfa_ms = round((t_tts_e - t0) * 1000)
+        def queue_sentence(sentence: str):
+            nonlocal first_piece_queued
+            clean_s = speakable(sentence)
+            if clean_s:
+                first_piece_queued = True
+                pending.put_nowait((clean_s, asyncio.create_task(synthesize(clean_s))))
+
+        async def send_in_order():
+            nonlocal first_audio_sent, ttfa_ms, sentence_idx
+            while (item := await pending.get()) is not None:
+                clean_s, job = item
+                audio_data, play_ms, chunk_tts_ms = await job
+                if not audio_data:
+                    continue  # text is already on screen via llm_delta; it just won't be spoken
+                sentence_idx += 1
+                if not first_audio_sent:
+                    first_audio_sent = True
+                    ttfa_ms = round((time.perf_counter() - t0) * 1000)
+                    await ws.send_json({
+                        "type": "first_audio",
+                        "time_to_first_audio_ms": ttfa_ms
+                    })
                 await ws.send_json({
-                    "type": "first_audio",
-                    "time_to_first_audio_ms": ttfa_ms
+                    "type": "audio_chunk",
+                    "index": sentence_idx,
+                    "text": clean_s,
+                    "audio_b64": base64.b64encode(audio_data).decode(),
+                    "play_ms": play_ms,  # where the speech ends; the rest of the clip is silence
+                    "tts_ms": chunk_tts_ms,
+                    "ttfa_ms": ttfa_ms
                 })
 
-            await ws.send_json({
-                "type": "audio_chunk",
-                "index": sentence_idx,
-                "text": clean_s,
-                "audio_b64": base64.b64encode(audio_data).decode(),
-                "tts_ms": chunk_tts_ms,
-                "ttfa_ms": ttfa_ms
-            })
+        def cancel_audio(sender):
+            sender.cancel()  # also cancels the synthesis it is waiting on
+            while not pending.empty():
+                item = pending.get_nowait()
+                if item:
+                    item[1].cancel()
 
+        sender = asyncio.create_task(send_in_order())
         try:
             # Each await is a cancellation point for barge-in
             async for chunk in stream:
@@ -275,19 +313,23 @@ async def websocket_endpoint(ws: WebSocket):
                     await ws.send_json({"type": "llm_delta", "delta": delta})
 
                     sentences, buffer = extract_sentences(buffer)
-                    if not first_audio_sent and not sentences:
+                    if not first_piece_queued and not sentences:
                         clause, buffer = extract_first_clause(buffer)
                         if clause:
                             sentences = [clause]
                     for s in sentences:
-                        await send_sentence_audio(s)
+                        queue_sentence(s)
 
             if buffer.strip():
-                await send_sentence_audio(buffer.strip())
+                queue_sentence(buffer.strip())
+            pending.put_nowait(None)
+            await sender
         except asyncio.CancelledError:
+            cancel_audio(sender)
             await stream.close()
             raise
         except Exception as e:
+            cancel_audio(sender)
             await ws.send_json({"type": "error", "message": f"Stream error: {e}"})
             return
 

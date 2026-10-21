@@ -1,6 +1,7 @@
 """Fast checks that run on every push (no API calls, no network).
 Run locally: python -m unittest discover -s tests -v
 """
+import asyncio
 import json
 import os
 import sys
@@ -38,6 +39,21 @@ class SentenceSplitting(unittest.TestCase):
         self.assertEqual(server.audio_filename(b"\x00\x00\x00\x20ftypM4A "), "speech.mp4")  # iPhone
         self.assertEqual(server.audio_filename(b"OggS\x00\x02"), "speech.ogg")
         self.assertEqual(server.audio_filename(b"\x1a\x45\xdf\xa3"), "speech.webm")  # Chrome
+
+    def test_clip_is_cut_where_speech_ends(self):
+        class FakeCommunicate:
+            def __init__(self, text, voice, boundary=None):
+                pass
+
+            async def stream(self):
+                yield {"type": "audio", "data": b"x" * 6000}  # 1 s clip, mostly trailing silence
+                yield {"type": "WordBoundary", "offset": 1_000_000, "duration": 3_000_000}  # 0.1-0.4 s
+
+        with unittest.mock.patch.object(server.edge_tts, "Communicate", FakeCommunicate):
+            _, at_comma = asyncio.run(server.tts_timed("Good morning,", "v"))
+            _, at_stop = asyncio.run(server.tts_timed("Good morning.", "v"))
+        self.assertEqual(at_comma, 400 + 120)  # a breath after a comma
+        self.assertEqual(at_stop, 400 + 350)   # a normal beat after a sentence
 
     def test_emoji_never_reaches_tts(self):
         self.assertEqual(server.speakable("🙏"), "")
