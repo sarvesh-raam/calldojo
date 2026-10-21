@@ -1,5 +1,11 @@
 # CallDojo
 
+[![CI](https://github.com/sarvesh-raam/calldojo/actions/workflows/ci.yml/badge.svg)](https://github.com/sarvesh-raam/calldojo/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://calldojo.onrender.com)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
+
+
 **A flight simulator for loan phone calls.** New loan officers practise on an AI customer
 before they talk to real ones, and get feedback the way a good sales manager would give it.
 
