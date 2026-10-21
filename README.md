@@ -352,20 +352,4 @@ score don't count against the scorecard limits.
 
 ---
 
-## Known limitations
 
-- **Groq free-tier limits.** Each model has its own per-minute and per-day token limits
-  (200k tokens a day for `gpt-oss-20b`), shared between the benchmark and every trainee. The
-  backup model and low reasoning effort stretch this, and the demo caps scorecards per day,
-  but for more than a handful of users use a paid tier. `gpt-oss-120b` is also Ravi's model for
-  Hindi and Tamil calls, so those share its budget with the scorer.
-- **The backup scorer at low reasoning effort is not yet re-benchmarked.** `gpt-oss-20b`
-  scored 98.6% at the default effort; rerun with `--model openai/gpt-oss-20b` to confirm.
-- **Scorer is benchmarked in English only.** Hindi and Tamil scorecards are not yet
-  validated; add calls in those languages to `benchmark/` before relying on them.
-- **Tamil speech recognition** is the weakest part. It was tested on synthetic voices, and
-  real accented, noisy speech will be harder.
-- **State lives in memory.** Calls only exist while the server process runs; run a single
-  worker. Transcripts are saved to disk only when a call is scored.
-- **No offline mode yet.** A local `faster-whisper` option is feasible for English; on a
-  CPU-only machine it adds ~1–2 s per turn, and is not practical for Hindi/Tamil without a GPU.
